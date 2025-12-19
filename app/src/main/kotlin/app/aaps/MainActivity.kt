@@ -131,14 +131,17 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         }
 
 
-         // 仅在 Android M+ 且首次需要时检查电池优化
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // 延迟执行，确保UI加载完成
-                Handler(Looper.getMainLooper()).postDelayed({
-                                                                BatteryOptimizationUtil.checkAndRequestIfNeeded(this)
-                                                            }, 1500) // 延迟1.5秒，用户体验更佳
-            }
-        
+        // 在延迟执行的代码块中
+Handler(Looper.getMainLooper()).postDelayed({
+    // 传入字符串资源ID
+    BatteryOptimizationUtil.checkAndRequestIfNeeded(
+        this,
+        R.string.please_allow_permission,
+        R.string.aaps_needs_whitelisting_for_proper_performance,
+        R.string.go_to_settings,
+        R.string.later
+    )
+}, 1500)
         
         // initialize screen wake lock
         processPreferenceChange(EventPreferenceChange(BooleanKey.OverviewKeepScreenOn.key))
