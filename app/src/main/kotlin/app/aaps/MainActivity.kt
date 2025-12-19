@@ -115,6 +115,29 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
     private var isProtectionCheckActive = false
     private lateinit var binding: ActivityMainBinding
 
+    companion object {
+    private const val REQUEST_CODE_BATTERY_OPTIMIZATION = 1001 // 必须与工具类中的请求码一致
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
+    
+    if (requestCode == REQUEST_CODE_BATTERY_OPTIMIZATION) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val hasPermission = BatteryOptimizationUtil.isIgnoringBatteryOptimizations(this)
+            val feedback = if (hasPermission) {
+                R.string.battery_permission_granted_thanks
+            } else {
+                R.string.battery_permission_warning
+            }
+            runOnUiThread {
+                Toast.makeText(this, getString(feedback), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+}
+    
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Iconify.with(FontAwesomeModule())
@@ -131,17 +154,16 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         }
 
 
-        // 在延迟执行的代码块中
-Handler(Looper.getMainLooper()).postDelayed({
-    // 传入字符串资源ID
-    BatteryOptimizationUtil.checkAndRequestIfNeeded(
-        this,
-        R.string.please_allow_permission,
-        R.string.aaps_needs_whitelisting_for_proper_performance,
-        R.string.go_to_settings,
-        R.string.later
-    )
-}, 1500)
+        Handler(Looper.getMainLooper()).postDelayed({
+        // 传递字符串，而非资源ID，彻底避免R引用问题
+        BatteryOptimizationUtil.checkAndRequestIfNeeded(
+            this,
+            getString(R.string.please_allow_permission), // 这里在Activity中获取字符串是安全的
+            getString(R.string.aaps_needs_whitelisting_for_proper_performance),
+            getString(R.string.go_to_settings),
+            getString(R.string.later)
+        )
+    }, 1500)
         
         // initialize screen wake lock
         processPreferenceChange(EventPreferenceChange(BooleanKey.OverviewKeepScreenOn.key))
