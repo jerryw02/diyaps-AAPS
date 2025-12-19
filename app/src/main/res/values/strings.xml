@@ -38,7 +38,7 @@
 
     <string name="please_allow_permission">请允许使用权限</string>
     <string name="aaps_needs_whitelisting_for_proper_performance">AndroidAPS 需要加入后台运行白名单才能获得适当的性能，以保证闭环系统持续监控血糖和输注胰岛素。</string>
-    <string name="ok">去设置</string>
+    <string name="go_to_settings">去设置</string> <!-- 确保这行存在且name正确 -->
     <string name="later">暂不</string>
     <string name="battery_optimization_disabled_thanks">后台运行权限已授予，闭环系统将得到保障。</string>
     <string name="battery_optimization_warning">您未授予后台运行权限。在部分设备上，这可能导致AndroidAPS被系统休眠，影响闭环安全。</string>
