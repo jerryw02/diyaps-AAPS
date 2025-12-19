@@ -11,6 +11,20 @@ import android.provider.Settings
 import android.util.Log
 import androidx.annotation.RequiresApi
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
+import android.util.Log
+import androidx.annotation.RequiresApi
+// 关键：导入你的应用资源R类
+import app.aaps.core.R
+
+
 object BatteryOptimizationUtil {
 
     private const val TAG = "BatteryOptimizationUtil"
