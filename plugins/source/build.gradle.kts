@@ -21,23 +21,22 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
         }
     }
-}
-
-configurations.all {
-    resolutionStrategy {
-        // 强制选择 full flavor
-        eachDependency {
-            if (requested.name == "app" && requested.group == "diyaps-AAPS") {
-                useTarget("full")
-            }
+    
+    // 关键：创建相同的 flavor 维度
+    flavorDimensions += "standard"
+    
+    // 关键：只创建我们需要的 flavor
+    productFlavors {
+        create("full") {
+            dimension = "standard"
         }
     }
 }
 
 dependencies {
-    // 明确指定 fullReleaseApiElements 配置
-    implementation(project(":app", configuration = "fullReleaseApiElements"))
+    implementation(project(":app"))
 }
+
 /*
 plugins {
     alias(libs.plugins.android.library)
