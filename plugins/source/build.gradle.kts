@@ -15,12 +15,12 @@ android {
     }
 
     // 确保 AIDL 能找到 Java 文件
-    sourceSets {
-        main {
-            java.srcDirs += ['src/main/java']
-            aidl.srcDirs += ['src/main/aidl']
-        }
-    }
+    //sourceSets {
+    //    main {
+    //        java.srcDirs += ['src/main/java']
+    //        aidl.srcDirs += ['src/main/aidl']
+    //    }
+    //}
     
     // 确保编译顺序
     compileOptions {
