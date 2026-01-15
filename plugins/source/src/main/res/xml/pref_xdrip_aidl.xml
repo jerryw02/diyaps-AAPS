@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 基本配置 -->
+    <SwitchPreference
+        android:key="@string/key_xdrip_aidl_enabled"
+        android:title="@string/xdrip_aidl_enabled"
+        android:summary="@string/xdrip_aidl_enabled_summary"
+        android:defaultValue="true" />
+
+    <ListPreference
+        android:key="@string/key_xdrip_aidl_max_age"
+        android:title="@string/xdrip_aidl_max_age"
+        android:summary="@string/xdrip_aidl_max_age_summary"
+        android:entries="@array/xdrip_max_age_entries"
+        android:entryValues="@array/xdrip_max_age_values"
+        android:defaultValue="15" />
+
+    <ListPreference
+        android:key="@string/key_xdrip_aidl_min_delta"
+        android:title="@string/xdrip_aidl_min_delta"
+        android:summary="@string/xdrip_aidl_min_delta_summary"
+        android:entries="@array/xdrip_min_delta_entries"
+        android:entryValues="@array/xdrip_min_delta_values"
+        android:defaultValue="2" />
+
+    <!-- 调试配置 -->
+    <PreferenceCategory
+        android:title="@string/xdrip_aidl_debug_category">
+
+        <SwitchPreference
+            android:key="@string/key_xdrip_aidl_debug_log"
+            android:title="@string/xdrip_aidl_debug_log"
+            android:summary="@string/xdrip_aidl_debug_log_summary"
+            android:defaultValue="true" />
+
+        <Preference
+            android:key="@string/key_xdrip_aidl_test_connection"
+            android:title="@string/xdrip_aidl_test_connection"
+            android:summary="@string/xdrip_aidl_test_connection_summary">
+            <intent android:action="app.aaps.plugins.source.xDripAidl.TEST_CONNECTION" />
+        </Preference>
+
+        <Preference
+            android:key="@string/key_xdrip_aidl_manual_fetch"
+            android:title="@string/xdrip_aidl_manual_fetch"
+            android:summary="@string/xdrip_aidl_manual_fetch_summary">
+            <intent android:action="app.aaps.plugins.source.xDripAidl.MANUAL_FETCH" />
+        </Preference>
+
+        <Preference
+            android:key="@string/key_xdrip_aidl_view_stats"
+            android:title="@string/xdrip_aidl_view_stats"
+            android:summary="@string/xdrip_aidl_view_stats_summary">
+            <intent android:action="app.aaps.plugins.source.xDripAidl.VIEW_STATS" />
+        </Preference>
+
+        <Preference
+            android:key="@string/key_xdrip_aidl_force_reconnect"
+            android:title="@string/xdrip_aidl_force_reconnect"
+            android:summary="@string/xdrip_aidl_force_reconnect_summary">
+            <intent android:action="app.aaps.plugins.source.xDripAidl.FORCE_RECONNECT" />
+        </Preference>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
