@@ -13,6 +13,20 @@ android {
     buildFeatures {
         aidl = true
     }
+
+    // 确保 AIDL 能找到 Java 文件
+    sourceSets {
+        main {
+            java.srcDirs += ['src/main/java']
+            aidl.srcDirs += ['src/main/aidl']
+        }
+    }
+    
+    // 确保编译顺序
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 }
 
 
