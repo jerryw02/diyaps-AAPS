@@ -15,12 +15,13 @@ android {
     }
 
     // 确保 AIDL 能找到 Java 文件
-    //sourceSets {
-    //    main {
-    //        java.srcDirs += ['src/main/java']
-    //        aidl.srcDirs += ['src/main/aidl']
-    //    }
-    //}
+    sourceSets {
+    // 方法1：使用 getByName（推荐）
+        getByName("main") {
+            java.setSrcDirs(listOf("src/main/java", "src/main/kotlin"))
+            aidl.setSrcDirs(listOf("src/main/aidl"))
+        }
+    }
     
     // 确保编译顺序
     compileOptions {
