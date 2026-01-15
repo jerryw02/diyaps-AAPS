@@ -1,3 +1,32 @@
+
+plugins {
+    id("com.android.library")
+    id("kotlin-android")
+}
+
+android {
+    compileSdk = 34
+    namespace = "app.aaps.plugins.source.xDripAidl"
+
+    defaultConfig {
+        minSdk = 23
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+dependencies {
+    implementation(project(":app"))
+}
+
+/*
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
@@ -89,3 +118,5 @@ dependencies {
     implementation("org.json:json:20230227")
 
 }
+*/
+
