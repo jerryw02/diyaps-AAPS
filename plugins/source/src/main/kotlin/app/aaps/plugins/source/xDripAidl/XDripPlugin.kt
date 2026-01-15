@@ -1,3 +1,5 @@
+//修改插件主类以适应 AAPS 的依赖注入
+
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
