@@ -38,8 +38,8 @@ android {
             java.srcDirs = ["src/main/java", "src/main/kotlin"]
             res.srcDirs = ["src/main/res"]
             manifest.srcFile= ["src/main/AndroidManifest.xml"]
+        }
     }
-
     buildFeatures {
         aidl = true
     }
