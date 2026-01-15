@@ -43,4 +43,78 @@
     <string name="patched_sino_app">Sino App</string>
     <string name="description_source_patched_sino_app">Receive glucose data from Patched Sino App.</string>
 
+    <!-- xDrip AIDL 基本 -->
+    <string name="xdrip_aidl">xDrip+ AIDL</string>
+    <string name="xdrip_aidl_short">xDrip AIDL</string>
+    <string name="xdrip_aidl_description">Receive glucose data from xDrip+ via AIDL service</string>
+
+    <!-- 设置项 -->
+    <string name="key_xdrip_aidl_enabled">key_xdrip_aidl_enabled</string>
+    <string name="xdrip_aidl_enabled">Enable xDrip AIDL</string>
+    <string name="xdrip_aidl_enabled_summary">Receive data from xDrip+ via AIDL</string>
+
+    <string name="key_xdrip_aidl_max_age">key_xdrip_aidl_max_age</string>
+    <string name="xdrip_aidl_max_age">Max data age</string>
+    <string name="xdrip_aidl_max_age_summary">Discard data older than X minutes</string>
+
+    <string name="key_xdrip_aidl_min_delta">key_xdrip_aidl_min_delta</string>
+    <string name="xdrip_aidl_min_delta">Min glucose delta</string>
+    <string name="xdrip_aidl_min_delta_summary">Minimum glucose change to trigger processing</string>
+
+    <!-- 调试设置 -->
+    <string name="key_xdrip_aidl_debug_log">key_xdrip_aidl_debug_log</string>
+    <string name="xdrip_aidl_debug_log">Debug logging</string>
+    <string name="xdrip_aidl_debug_log_summary">Enable detailed logging for debugging</string>
+
+    <string name="key_xdrip_aidl_test_connection">key_xdrip_aidl_test_connection</string>
+    <string name="xdrip_aidl_test_connection">Test connection</string>
+    <string name="xdrip_aidl_test_connection_summary">Test xDrip AIDL connection</string>
+
+    <string name="key_xdrip_aidl_manual_fetch">key_xdrip_aidl_manual_fetch</string>
+    <string name="xdrip_aidl_manual_fetch">Manual fetch</string>
+    <string name="xdrip_aidl_manual_fetch_summary">Manually fetch data from xDrip</string>
+
+    <string name="key_xdrip_aidl_view_stats">key_xdrip_aidl_view_stats</string>
+    <string name="xdrip_aidl_view_stats">View statistics</string>
+    <string name="xdrip_aidl_view_stats_summary">View connection and processing statistics</string>
+
+    <string name="key_xdrip_aidl_force_reconnect">key_xdrip_aidl_force_reconnect</string>
+    <string name="xdrip_aidl_force_reconnect">Force reconnect</string>
+    <string name="xdrip_aidl_force_reconnect_summary">Force reconnect to xDrip service</string>
+
+    <string name="xdrip_aidl_debug_category">Debug</string>
+
+    <!-- 数组资源 -->
+    <string-array name="xdrip_max_age_entries">
+        <item>5 minutes</item>
+        <item>10 minutes</item>
+        <item>15 minutes</item>
+        <item>20 minutes</item>
+        <item>30 minutes</item>
+    </string-array>
+
+    <string-array name="xdrip_max_age_values">
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>20</item>
+        <item>30</item>
+    </string-array>
+
+    <string-array name="xdrip_min_delta_entries">
+        <item>1 mg/dL</item>
+        <item>2 mg/dL</item>
+        <item>3 mg/dL</item>
+        <item>5 mg/dL</item>
+        <item>10 mg/dL</item>
+    </string-array>
+
+    <string-array name="xdrip_min_delta_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+    </string-array>
+
 </resources>
