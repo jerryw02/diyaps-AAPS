@@ -1,5 +1,6 @@
 package app.aaps.plugins.source.xDripAidl
 
+import app.aaps.core.utils.LTag
 import android.content.Context
 import app.aaps.core.data.GlucoseValue
 import app.aaps.core.interfaces.RawDisplayData
