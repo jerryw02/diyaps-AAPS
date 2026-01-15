@@ -10,32 +10,25 @@ plugins {
 android {
     namespace = "app.aaps.plugins.source"
 
-    compileSdk = libs.versions.compileSdk.get().toInt() // 确保有这行
+    compileSdk = 35
 
     buildFeatures {
         aidl = true
     }
 
-    // ✅ 推荐方式：使用 JVM Toolchain（统一 Java 和 Kotlin）
+    // ✅ 新版 JVM 目标配置（替代 kotlinOptions）
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
-    // 一般不需要显式配置 sourceSets，AGP 自动处理
-    // 如果确实需要，再取消注释下面的代码
-    /*
-    sourceSets {
-        getByName("main") {
-            java.srcDirs("src/main/java", "src/main/kotlin")
-            aidl.srcDir("src/main/aidl")
+    // ✅ 使用 compilerOptions (AGP 8.0+ / Kotlin 1.9+)
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    */
+    
 }
 
 dependencies {
