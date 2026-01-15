@@ -22,16 +22,13 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
         }
     }
+    
+    // 关键：添加这个配置
+    missingDimensionStrategy("standard", "full")
 }
 
 dependencies {
-    // 明确指定使用哪个变体（根据错误信息，选择其中一个）
-    // 通常 "full" 或 "aapsclient" 是主要变体
-    implementation(project(":app")) {
-        attributes {
-            attribute(com.android.build.api.attributes.ProductFlavorAttr.of("standard"), "full")
-        }
-    }
+    implementation(project(":app"))
 }
 
 /*
