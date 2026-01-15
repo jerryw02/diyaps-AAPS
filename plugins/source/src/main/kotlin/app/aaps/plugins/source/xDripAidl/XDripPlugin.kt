@@ -7,6 +7,422 @@ import com.eveningoutpost.dexdrip.BgData
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.R
 import info.nightscout.androidaps.database.data.GlucoseValue
+import info.nightscout.androidaps.interfaces.*
+import info.nightscout.androidaps.logging.AAPSLogger
+import info.nightscout.androidaps.logging.LTag
+import info.nightscout.androidaps.plugins.bus.RxBus
+import info.nightscout.androidaps.plugins.iob.iobCobCalculator.events.EventNewHistoryData
+import info.nightscout.androidaps.utils.T
+import info.nightscout.androidaps.utils.resources.ResourceHelper
+import info.nightscout.androidaps.utils.rx.AapsSchedulers
+import info.nightscout.shared.sharedPreferences.SP
+import io.reactivex.rxjava3.disposables.CompositeDisposable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.atomic.AtomicLong
+import javax.inject.Inject
+
+class XDripPlugin @Inject constructor(
+    injector: HasAndroidInjector,
+    @NonNull aapsLogger: AAPSLogger,
+    @NonNull rh: ResourceHelper,
+    @NonNull sp: SP,
+    @NonNull private val context: Context,
+    @NonNull private val rxBus: RxBus,
+    @NonNull private val aapsSchedulers: AapsSchedulers,
+    @NonNull private val activePlugin: ActivePluginProvider
+) : PluginBase(
+    PluginDescription()
+        .mainType(PluginType.DATASOURCE)
+        .fragmentClass(XDripFragment::class.java.name)
+        .pluginName(R.string.xdrip_aidl)
+        .shortName(R.string.xdrip_aidl_short)
+        .preferencesId(R.xml.pref_xdrip_aidl)
+        .description(R.string.xdrip_aidl_description),
+    aapsLogger, rh, sp
+), DataSourcePlugin {
+
+    companion object {
+        private const val TEST_TAG = "XDripPlugin_TEST"
+    }
+
+    private val scope = CoroutineScope(Dispatchers.Main)
+    private val disposable = CompositeDisposable()
+
+    private var xdripService: XdripAidlService? = null
+    private val lastProcessedTimestamp = AtomicLong(0)
+    private var lastGlucoseValue: Double = 0.0
+    
+    // 处理统计
+    private var totalDataReceived = 0
+    private var totalDataProcessed = 0
+    private var totalDataRejected = 0
+    private var totalDataErrors = 0
+    private var lastProcessedTime = 0L
+    private val processingTimes = mutableListOf<Long>()
+
+    // 配置
+    private val isEnabled: Boolean
+        get() = sp.getBoolean(R.string.key_xdrip_aidl_enabled, true)
+
+    private val maxDataAgeMinutes: Long
+        get() = sp.getLong(R.string.key_xdrip_aidl_max_age, 15)
+
+    private val minGlucoseDelta: Double
+        get() = sp.getDouble(R.string.key_xdrip_aidl_min_delta, 2.0)
+    
+    // 调试模式
+    private val debugLogging: Boolean
+        get() = sp.getBoolean(R.string.key_xdrip_aidl_debug_log, true)
+
+    override fun advancedFilteringSupported(): Boolean = false
+
+    override fun onStart() {
+        super.onStart()
+        aapsLogger.info(LTag.XDRIP, 
+            "[${TEST_TAG}_PLUGIN_START] ========== xDrip AIDL Plugin Starting ==========")
+        
+        if (isEnabled) {
+            logPluginFlow("INITIALIZATION", "Initializing xDrip AIDL service")
+            initializeService()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        aapsLogger.info(LTag.XDRIP, 
+            "[${TEST_TAG}_PLUGIN_STOP] ========== xDrip AIDL Plugin Stopping ==========")
+        
+        xdripService?.cleanup()
+        disposable.clear()
+    }
+
+    override fun specialEnableCondition(): Boolean = isEnabled
+
+    private fun initializeService() {
+        logPluginFlow("SERVICE_INIT_START", "Initializing xDrip BG data service")
+        
+        // 获取 LifecycleOwner
+        val lifecycleOwner = try {
+            context as? androidx.lifecycle.LifecycleOwner
+        } catch (e: Exception) {
+            null
+        }
+
+        xdripService = XdripAidlService(context, aapsLogger, lifecycleOwner).apply {
+            addListener(object : XdripAidlService.XdripDataListener {
+                override fun onNewBgData(data: BgData) {
+                    logPluginFlow("LISTENER_TRIGGERED", "Service listener received new BG data")
+                    handleNewBgData(data)
+                }
+
+                override fun onConnectionStateChanged(connected: Boolean) {
+                    logPluginFlow("CONNECTION_CHANGE", "Connection state changed: $connected")
+                    handleConnectionStateChanged(connected)
+                }
+
+                override fun onError(error: String) {
+                    logPluginFlow("SERVICE_ERROR", "Service reported error: $error")
+                    handleServiceError(error)
+                }
+            })
+
+            // 连接服务
+            logPluginFlow("SERVICE_CONNECT_INIT", "Initiating service connection to xDrip")
+            connect()
+        }
+    }
+
+    private fun handleNewBgData(data: BgData) {
+        totalDataReceived++
+        val startTime = System.currentTimeMillis()
+        val processId = UUID.randomUUID().toString().substring(0, 8)
+        
+        logPluginFlow("DATA_PROCESS_START_$processId", 
+            "Starting data processing for BG: ${data.glucose} mg/dL")
+
+        // 1. 数据验证
+        logPluginFlow("VALIDATION_START_$processId", "Starting data validation")
+        if (!validateBgData(data)) {
+            totalDataRejected++
+            logPluginFlow("VALIDATION_FAIL_$processId", "Data validation failed")
+            return
+        }
+
+        // 2. 防止重复处理
+        val lastTimestamp = lastProcessedTimestamp.get()
+        if (data.timestamp <= lastTimestamp) {
+            totalDataRejected++
+            logPluginFlow("DUPLICATE_SKIP_$processId", "Duplicate data, skipping processing")
+            return
+        }
+
+        // 3. 检查血糖变化是否显著
+        val glucoseDelta = Math.abs(data.glucose - lastGlucoseValue)
+        val dataAgeMinutes = getDataAge(data.timestamp) / 60
+        if (glucoseDelta < minGlucoseDelta && dataAgeMinutes < 2) {
+            totalDataRejected++
+            logPluginFlow("SMALL_DELTA_SKIP_$processId", "Glucose change too small, skipping")
+            return
+        }
+
+        // 4. 转换为AAPS格式
+        val glucoseValue = convertToGlucoseValue(data)
+
+        // 5. 存储到数据库
+        storeGlucoseValue(glucoseValue)
+
+        // 6. 更新内部状态
+        lastProcessedTimestamp.set(data.timestamp)
+        lastGlucoseValue = data.glucose
+        lastProcessedTime = System.currentTimeMillis()
+
+        // 7. 触发数据更新事件
+        triggerDataUpdateEvents(glucoseValue)
+
+        // 8. 检查是否需要触发循环
+        if (shouldTriggerLoop(data)) {
+            logPluginFlow("LOOP_TRIGGER_$processId", "Loop conditions met, triggering loop processing")
+            triggerLoopProcessing(data)
+        }
+
+        val processTime = System.currentTimeMillis() - startTime
+        processingTimes.add(processTime)
+        totalDataProcessed++
+        
+        aapsLogger.info(LTag.XDRIP, 
+            "[${TEST_TAG}_PROCESS_SUCCESS_$processId] Successfully processed xDrip data: " +
+            "${data.glucose} mg/dL (${data.direction}) in ${processTime}ms")
+    }
+
+    private fun validateBgData(data: BgData): Boolean {
+        // 检查数据有效性
+        if (!data.isValid()) {
+            totalDataErrors++
+            return false
+        }
+
+        // 检查数据年龄
+        val dataAgeMinutes = getDataAge(data.timestamp) / 60
+        if (dataAgeMinutes > maxDataAgeMinutes) {
+            totalDataErrors++
+            return false
+        }
+
+        return true
+    }
+
+    private fun convertToGlucoseValue(data: BgData): GlucoseValue {
+        val noiseValue = mapNoise(data.noise)
+        val direction = mapDirection(data.direction)
+        
+        return GlucoseValue(
+            timestamp = data.timestamp,
+            value = data.glucose,
+            raw = data.unfiltered,
+            noise = noiseValue,
+            trendArrow = direction,
+            source = "xDrip AIDL"
+        ).apply {
+            isValid = data.isValid()
+        }
+    }
+
+    private fun mapNoise(noise: String?): Double {
+        return when {
+            noise == null -> 0.0
+            noise.contains("high", ignoreCase = true) -> 2.0
+            noise.contains("medium", ignoreCase = true) -> 1.0
+            noise.contains("low", ignoreCase = true) -> 0.5
+            else -> 0.0
+        }
+    }
+
+    private fun mapDirection(direction: String?): String {
+        return when (direction) {
+            "DoubleUp" -> "DoubleUp"
+            "SingleUp" -> "SingleUp"
+            "FortyFiveUp" -> "FortyFiveUp"
+            "Flat" -> "Flat"
+            "FortyFiveDown" -> "FortyFiveDown"
+            "SingleDown" -> "SingleDown"
+            "DoubleDown" -> "DoubleDown"
+            else -> direction ?: "NONE"
+        }
+    }
+
+    private fun storeGlucoseValue(glucoseValue: GlucoseValue) {
+        val nsClient = activePlugin.activeNsClient
+        if (nsClient == null) {
+            totalDataErrors++
+            return
+        }
+
+        disposable.add(
+            nsClient.nsAdd(glucoseValue)
+                .subscribeOn(aapsSchedulers.io)
+                .observeOn(aapsSchedulers.main)
+                .subscribe(
+                    { 
+                        aapsLogger.info(LTag.XDRIP, 
+                            "[${TEST_TAG}_STORAGE_SUCCESS] Successfully stored glucose value " +
+                            "${glucoseValue.value} mg/dL to Nightscout")
+                    },
+                    { error -> 
+                        totalDataErrors++
+                        aapsLogger.error(LTag.XDRIP, 
+                            "[${TEST_TAG}_STORAGE_ERROR] Error storing glucose to Nightscout", error)
+                    }
+                )
+        )
+    }
+
+    private fun triggerDataUpdateEvents(glucoseValue: GlucoseValue) {
+        // 触发新历史数据事件
+        rxBus.send(EventNewHistoryData(glucoseValue.timestamp))
+
+        // 通知IobCobCalculator更新
+        val calculator = activePlugin.activeIobCobCalculator
+        if (calculator != null) {
+            calculator.updateLatestBg(
+                glucoseValue.value,
+                glucoseValue.timestamp,
+                glucoseValue.trendArrow ?: ""
+            )
+        }
+    }
+
+    private fun shouldTriggerLoop(data: BgData): Boolean {
+        val loopPlugin = activePlugin.activeLoop
+        if (loopPlugin == null || !loopPlugin.isEnabled) {
+            return false
+        }
+
+        // 检查是否达到最小处理间隔
+        val timeSinceLastLoop = System.currentTimeMillis() - loopPlugin.lastRun
+        val minLoopInterval = T.mins(5).msecs()
+        
+        if (timeSinceLastLoop < minLoopInterval) {
+            return false
+        }
+
+        return true
+    }
+
+    private fun triggerLoopProcessing(data: BgData) {
+        aapsLogger.info(LTag.XDRIP, 
+            "[${TEST_TAG}_LOOP_TRIGGER] Triggering loop processing from xDrip data: " +
+            "${data.glucose} mg/dL")
+        
+        val loopPlugin = activePlugin.activeLoop
+        if (loopPlugin != null) {
+            val reason = "Triggered by xDrip AIDL (BG: ${data.glucose} mg/dL)"
+            loopPlugin.invoke(reason, false)
+        }
+    }
+
+    private fun handleConnectionStateChanged(connected: Boolean) {
+        aapsLogger.info(LTag.XDRIP, 
+            "[${TEST_TAG}_CONNECTION_STATE_UPDATE] Connection state changed: $connected")
+    }
+
+    private fun handleServiceError(error: String) {
+        totalDataErrors++
+        aapsLogger.error(LTag.XDRIP, 
+            "[${TEST_TAG}_SERVICE_ERROR_DETAIL] Service error received: $error")
+    }
+
+    private fun formatTime(timestamp: Long): String {
+        return SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date(timestamp))
+    }
+    
+    private fun getDataAge(timestamp: Long): Long {
+        return (System.currentTimeMillis() - timestamp) / 1000
+    }
+    
+    private fun getAverageProcessTime(): Long {
+        return if (processingTimes.isNotEmpty()) {
+            processingTimes.average().toLong()
+        } else {
+            0
+        }
+    }
+    
+    private fun logPluginFlow(stage: String, message: String) {
+        if (debugLogging) {
+            aapsLogger.debug(LTag.XDRIP,
+                "[${TEST_TAG}_FLOW_${stage}] $message")
+        }
+    }
+
+    // 公开API
+    suspend fun getLatestBgData(): BgData? {
+        return xdripService?.getLatestBgData()
+    }
+
+    fun isConnected(): Boolean {
+        return xdripService?.checkConnectionStatus() ?: false
+    }
+
+    override fun getRawData(): RawDisplayData {
+        return RawDisplayData().apply {
+            glucose = lastGlucoseValue
+            timestamp = lastProcessedTimestamp.get()
+            source = "xDrip+ AIDL"
+        }
+    }
+
+    fun getConnectionState(): XdripAidlService.ConnectionState? {
+        return xdripService?.connectionState?.value
+    }
+    
+    fun getServiceStatistics(): Map<String, Any>? {
+        return xdripService?.getStatistics()
+    }
+
+    // 手动获取数据（用于调试）
+    fun fetchLatestDataManually() {
+        scope.launch {
+            val data = getLatestBgData()
+            if (data != null) {
+                handleNewBgData(data)
+            }
+        }
+    }
+    
+    fun getPluginStatistics(): Map<String, Any> {
+        val stats = mutableMapOf<String, Any>()
+        stats["total_data_received"] = totalDataReceived
+        stats["total_data_processed"] = totalDataProcessed
+        stats["total_data_rejected"] = totalDataRejected
+        stats["total_data_errors"] = totalDataErrors
+        stats["last_processed_time"] = lastProcessedTime
+        stats["last_glucose_value"] = lastGlucoseValue
+        stats["last_processed_timestamp"] = lastProcessedTimestamp.get()
+        stats["average_process_time_ms"] = getAverageProcessTime()
+        stats["debug_logging_enabled"] = debugLogging
+        stats["plugin_enabled"] = isEnabled
+        stats["service_connected"] = xdripService?.checkConnectionStatus() ?: false
+        
+        return stats
+    }
+}
+
+
+
+/*
+package app.aaps.plugins.source.xDripAidl
+
+import android.content.Context
+import androidx.annotation.NonNull
+import androidx.lifecycle.LifecycleOwner
+import com.eveningoutpost.dexdrip.BgData
+import dagger.android.HasAndroidInjector
+import info.nightscout.androidaps.R
+import info.nightscout.androidaps.database.data.GlucoseValue
 import info.nightscout.androidaps.extensions.convertTo
 import info.nightscout.androidaps.interfaces.*
 import info.nightscout.androidaps.logging.AAPSLogger
@@ -813,3 +1229,6 @@ class XDripPlugin @Inject constructor(
         return stats
     }
 }
+*/
+
+
