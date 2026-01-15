@@ -22,10 +22,7 @@ android {
         }
     }
     
-    // 关键：创建相同的 flavor 维度
     flavorDimensions += "standard"
-    
-    // 关键：只创建我们需要的 flavor
     productFlavors {
         create("full") {
             dimension = "standard"
@@ -34,7 +31,29 @@ android {
 }
 
 dependencies {
-    implementation(project(":app"))
+    // 不要直接依赖 app 模块！
+    // 改为依赖 app 模块公开的接口模块
+    
+    // 查找项目中是否有独立的接口模块
+    // 例如：implementation(project(":core:interfaces"))
+    // 或：implementation(project(":shared:impl"))
+    
+    // 查看 wear 模块的依赖，它使用了：
+    // implementation(project(":shared:impl"))
+    // implementation(project(":core:interfaces"))
+    // implementation(project(":core:keys"))
+    // implementation(project(":core:ui"))
+    // implementation(project(":core:data"))
+    
+    // 添加必要的核心模块依赖
+    implementation(project(":core:interfaces"))
+    implementation(project(":shared:impl"))
+    
+    // 基础依赖
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("io.reactivex.rxjava3:rxjava:3.1.6")
+    implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
 }
 
 /*
