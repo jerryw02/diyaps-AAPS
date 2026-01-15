@@ -14,6 +14,11 @@ android {
         aidl = true
     }
 
+    // 确保编译顺序
+    compileOptions {
+        sourceCompatibility(JavaVersion.VERSION_1_8)
+        targetCompatibility(JavaVersion.VERSION_1_8)
+    }
     // 确保 AIDL 能找到 Java 文件
     sourceSets {
     // 方法1：使用 getByName（推荐）
@@ -23,11 +28,10 @@ android {
         }
     }
     
-    // 确保编译顺序
-    compileOptions {
-        sourceCompatibility(JavaVersion.VERSION_1_8)
-        targetCompatibility(JavaVersion.VERSION_1_8)
-    }
+   // 确保任务依赖关系正确
+   tasks.named("compileFullReleaseAidl") {
+        dependsOn("compileFullReleaseJavaWithJavac")
+   }
 }
 
 
