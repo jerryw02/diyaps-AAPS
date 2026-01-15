@@ -12,9 +12,9 @@
 
     <application>
 
-        <service
-            android:name=".XDripAidlService"
-            android:exported="false" />
+        //<service
+        //    android:name=".XDripAidlService"
+        //    android:exported="false" />
         
         <activity
             android:name=".activities.RequestDexcomPermissionActivity"
