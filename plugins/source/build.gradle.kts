@@ -4,7 +4,7 @@ plugins {
     //id("com.android.library")
     id("kotlin-android")
     id("kotlin-kapt")
-    id("dagger.hilt.android.plugin")
+    //id("dagger.hilt.android.plugin")
     id("android-module-dependencies")
     id("test-module-dependencies")
     id("jacoco-module-dependencies")
@@ -19,6 +19,8 @@ android {
     defaultConfig {
         minSdk = 23
         targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
     }
 
     compileOptions {
@@ -35,6 +37,7 @@ android {
             aidl.srcDirs = ["src/main/aidl"]
             java.srcDirs = ["src/main/java", "src/main/kotlin"]
             res.srcDirs = ["src/main/res"]
+            manifest.srcFile "src/main/AndroidManifest.xml"
         }
     }
 
@@ -72,14 +75,18 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-common-java8:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
 
     // AAPS 核心依赖
     implementation("info.nightscout.androidaps:core:0.0.0") {
         isTransitive = true
     }
 
-    // Dagger
-    implementation("com.google.dagger:dagger:2.48")
-    kapt("com.google.dagger:dagger-compiler:2.48")
+    // RxJava
+    implementation("io.reactivex.rxjava3:rxjava:3.1.6")
+    implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
+    
+    // JSON
+    implementation("org.json:json:20230227")
 
 }
