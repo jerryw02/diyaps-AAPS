@@ -1,59 +1,38 @@
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
     id("kotlin-android")
+    id("android-module-dependencies")
+    id("test-module-dependencies")
+    id("jacoco-module-dependencies")
 }
 
 android {
-    compileSdk = 34
-    namespace = "app.aaps.plugins.source.xDripAidl"
-
-    defaultConfig {
-        minSdk = 23
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
-        }
-    }
-    
-    flavorDimensions += "standard"
-    productFlavors {
-        create("full") {
-            dimension = "standard"
-        }
+    namespace = "app.aaps.plugins.source"
+    // 添加 AIDL 支持
+    buildFeatures {
+        aidl = true
     }
 }
 
+
 dependencies {
-    // 不要直接依赖 app 模块！
-    // 改为依赖 app 模块公开的接口模块
-    
-    // 查找项目中是否有独立的接口模块
-    // 例如：implementation(project(":core:interfaces"))
-    // 或：implementation(project(":shared:impl"))
-    
-    // 查看 wear 模块的依赖，它使用了：
-    // implementation(project(":shared:impl"))
-    // implementation(project(":core:interfaces"))
-    // implementation(project(":core:keys"))
-    // implementation(project(":core:ui"))
-    // implementation(project(":core:data"))
-    
-    // 添加必要的核心模块依赖
+    implementation(project(":core:data"))
     implementation(project(":core:interfaces"))
+    implementation(project(":core:keys"))
+    implementation(project(":core:objects"))
+    implementation(project(":core:nssdk"))
+    implementation(project(":core:ui"))
+    implementation(project(":core:utils"))
+    implementation(project(":core:validators"))
     implementation(project(":shared:impl"))
-    
-    // 基础依赖
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("io.reactivex.rxjava3:rxjava:3.1.6")
-    implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
+
+    testImplementation(libs.androidx.work.testing)
+
+    testImplementation(project(":shared:tests"))
+
+    ksp(libs.com.google.dagger.compiler)
+    ksp(libs.com.google.dagger.android.processor)
 }
 
 /*
