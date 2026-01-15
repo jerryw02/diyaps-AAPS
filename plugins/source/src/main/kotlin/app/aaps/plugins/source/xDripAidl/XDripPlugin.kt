@@ -1,3 +1,52 @@
+//简化版
+package app.aaps.plugins.source.xDripAidl
+
+import android.content.Context
+import info.nightscout.androidaps.R
+import info.nightscout.androidaps.database.data.GlucoseValue
+import info.nightscout.androidaps.interfaces.DataSourcePlugin
+import info.nightscout.androidaps.interfaces.PluginDescription
+import info.nightscout.androidaps.interfaces.PluginType
+import info.nightscout.androidaps.logging.AAPSLogger
+import info.nightscout.androidaps.plugins.bus.RxBus
+import info.nightscout.androidaps.plugins.iob.iobCobCalculator.events.EventNewHistoryData
+import info.nightscout.androidaps.plugins.source.AbstractBgSourcePlugin
+import info.nightscout.androidaps.utils.resources.ResourceHelper
+import info.nightscout.shared.sharedPreferences.SP
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import javax.inject.Inject
+
+class XDripPlugin @Inject constructor(
+    aapsLogger: AAPSLogger,
+    rh: ResourceHelper,
+    sp: SP,
+    private val context: Context,
+    private val rxBus: RxBus
+) : AbstractBgSourcePlugin(
+    PluginDescription()
+        .mainType(PluginType.DATASOURCE)
+        .fragmentClass(XDripFragment::class.java.name)
+        .pluginName(R.string.xdrip_aidl)
+        .shortName(R.string.xdrip_aidl_short)
+        .preferencesId(R.xml.pref_xdrip_aidl)
+        .description(R.string.xdrip_aidl_description),
+    aapsLogger, rh, sp
+), DataSourcePlugin {
+    
+    // 简化的实现...
+    override fun advancedFilteringSupported(): Boolean = false
+    
+    override fun getRawData(): info.nightscout.androidaps.interfaces.RawDisplayData {
+        return info.nightscout.androidaps.interfaces.RawDisplayData()
+    }
+    
+    override fun specialEnableCondition(): Boolean {
+        return sp.getBoolean(R.string.key_xdrip_aidl_enabled, true)
+    }
+}
+
+/*
 //修改插件主类以适应 AAPS 的依赖注入
 
 package app.aaps.plugins.source.xDripAidl
@@ -412,7 +461,7 @@ class XDripPlugin @Inject constructor(
         return stats
     }
 }
-
+*/
 
 
 /*
