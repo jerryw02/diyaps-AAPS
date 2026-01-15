@@ -2,23 +2,16 @@
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
-import info.nightscout.androidaps.R
-import info.nightscout.androidaps.database.data.GlucoseValue
-import info.nightscout.androidaps.interfaces.DataSourcePlugin
-import info.nightscout.androidaps.interfaces.PluginDescription
-import info.nightscout.androidaps.interfaces.PluginType
-//import info.nightscout.androidaps.logging.AAPSLogger
+import app.aaps.core.interfaces.plugin.DataSourcePlugin
+import app.aaps.core.interfaces.plugin.PluginDescription
+import app.aaps.core.interfaces.plugin.PluginType
 import app.aaps.core.interfaces.logging.AAPSLogger
-//import info.nightscout.androidaps.plugins.bus.RxBus
 import app.aaps.core.interfaces.rx.bus.RxBus
-import info.nightscout.androidaps.plugins.iob.iobCobCalculator.events.EventNewHistoryData
-import info.nightscout.androidaps.plugins.source.AbstractBgSourcePlugin
-//import info.nightscout.androidaps.utils.resources.ResourceHelper
 import app.aaps.core.interfaces.resources.ResourceHelper
-//import info.nightscout.shared.sharedPreferences.SP
 import app.aaps.core.interfaces.sharedPreferences.SP
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.aaps.core.ui.R // 👈 注意：R 来自 core.ui
+import app.aaps.plugins.source.AbstractBgSourcePlugin
+import app.aaps.core.interfaces.RawDisplayData
 import javax.inject.Inject
 
 class XDripPlugin @Inject constructor(
@@ -37,19 +30,17 @@ class XDripPlugin @Inject constructor(
         .description(R.string.xdrip_aidl_description),
     aapsLogger, rh, sp
 ), DataSourcePlugin {
-    
-    // 简化的实现...
+
     override fun advancedFilteringSupported(): Boolean = false
-    
-    override fun getRawData(): info.nightscout.androidaps.interfaces.RawDisplayData {
-        return info.nightscout.androidaps.interfaces.RawDisplayData()
+
+    override fun getRawData(): RawDisplayData {
+        return RawDisplayData()
     }
-    
+
     override fun specialEnableCondition(): Boolean {
         return sp.getBoolean(R.string.key_xdrip_aidl_enabled, true)
     }
 }
-
 /*
 //修改插件主类以适应 AAPS 的依赖注入
 
