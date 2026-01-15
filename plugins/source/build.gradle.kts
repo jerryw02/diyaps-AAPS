@@ -17,13 +17,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 
-    kotlinOptions {
-        jvmTarget = "1.8"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+        }
     }
 }
 
 dependencies {
-    implementation(project(":app"))
+    // 明确指定使用哪个变体（根据错误信息，选择其中一个）
+    // 通常 "full" 或 "aapsclient" 是主要变体
+    implementation(project(":app")) {
+        attributes {
+            attribute(com.android.build.api.attributes.ProductFlavorAttr.of("standard"), "full")
+        }
+    }
 }
 
 /*
