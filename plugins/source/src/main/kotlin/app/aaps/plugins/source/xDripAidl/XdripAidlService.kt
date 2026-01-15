@@ -1,5 +1,6 @@
 package app.aaps.plugins.source.xDripAidl
 
+import plugins.source.src.main.java.com.eveningoutpost.dexdrip.BgData
 import app.aaps.core.interfaces.logging.LTag
 import android.content.Context
 import app.aaps.core.data.GlucoseValue
