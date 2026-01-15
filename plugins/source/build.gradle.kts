@@ -48,6 +48,11 @@ dependencies {
     ksp(libs.com.google.dagger.android.processor)
 }
 
+// ✅ 强制覆盖：确保所有 Kotlin 编译任务使用 JVM 17
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+}
+
 /*
 plugins {
     alias(libs.plugins.android.library)
