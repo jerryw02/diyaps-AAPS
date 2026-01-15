@@ -7,10 +7,6 @@ plugins {
     id("jacoco-module-dependencies")
 }
 
-// ✅ 关键：在 android 块之外设置 Kotlin 的 JVM Toolchain
-kotlin {
-    jvmToolchain(17)
-}
 
 android {
     namespace = "app.aaps.plugins.source"
@@ -27,11 +23,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // ✅ 使用 compilerOptions (AGP 8.0+ / Kotlin 1.9+)
+    // ✅ 关键：在 android 块内配置 Kotlin 的 jvmToolchain
     kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
+        jvmToolchain(17)
     }
     
 }
