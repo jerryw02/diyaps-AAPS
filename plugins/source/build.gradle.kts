@@ -9,31 +9,27 @@ plugins {
 
 android {
     namespace = "app.aaps.plugins.source"
-    // 添加 AIDL 支持
+
     buildFeatures {
         aidl = true
     }
 
-    // 确保编译顺序
     compileOptions {
-        sourceCompatibility(JavaVersion.VERSION_1_8)
-        targetCompatibility(JavaVersion.VERSION_1_8)
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
-    // 确保 AIDL 能找到 Java 文件
+
+    // 一般不需要显式配置 sourceSets，AGP 自动处理
+    // 如果确实需要，再取消注释下面的代码
+    /*
     sourceSets {
-    // 方法1：使用 getByName（推荐）
         getByName("main") {
-            java.setSrcDirs(listOf("src/main/java", "src/main/kotlin"))
-            aidl.setSrcDirs(listOf("src/main/aidl"))
+            java.srcDirs("src/main/java", "src/main/kotlin")
+            aidl.srcDir("src/main/aidl")
         }
     }
-    
-   // 确保任务依赖关系正确
-   tasks.named("compileFullReleaseAidl") {
-        dependsOn("compileFullReleaseJavaWithJavac")
-   }
+    */
 }
-
 
 dependencies {
     implementation(project(":core:data"))
@@ -47,7 +43,6 @@ dependencies {
     implementation(project(":shared:impl"))
 
     testImplementation(libs.androidx.work.testing)
-
     testImplementation(project(":shared:tests"))
 
     ksp(libs.com.google.dagger.compiler)
