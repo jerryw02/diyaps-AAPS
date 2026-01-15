@@ -7,6 +7,11 @@ plugins {
     id("jacoco-module-dependencies")
 }
 
+// ✅ 关键：在 android 块之外设置 Kotlin 的 JVM Toolchain
+kotlin {
+    jvmToolchain(17)
+}
+
 android {
     namespace = "app.aaps.plugins.source"
 
