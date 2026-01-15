@@ -1,5 +1,7 @@
 package app.aaps.plugins.source.xDripAidl
 
+/*
+
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,4 +17,6 @@ object XDripModule {
     fun provideXDripPlugin(plugin: XDripPlugin): XDripPlugin {
         return plugin
     }
+*/
+
 }
