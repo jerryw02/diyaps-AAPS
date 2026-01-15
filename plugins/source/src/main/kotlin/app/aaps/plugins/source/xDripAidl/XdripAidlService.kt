@@ -1,25 +1,21 @@
 package app.aaps.plugins.source.xDripAidl
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
-import android.os.IBinder
-import android.os.RemoteException
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleObserver
-import androidx.lifecycle.OnLifecycleEvent
-import com.eveningoutpost.dexdrip.BgData
-import com.eveningoutpost.dexdrip.IBgDataCallback
-import com.eveningoutpost.dexdrip.IBgDataService
-import info.nightscout.androidaps.logging.AAPSLogger
-import info.nightscout.androidaps.logging.LTag
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.atomic.AtomicBoolean
+import app.aaps.core.data.GlucoseValue
+import app.aaps.core.interfaces.RawDisplayData
+import app.aaps.core.interfaces.plugin.DataSourcePlugin
+import app.aaps.core.interfaces.plugin.PluginDescription
+import app.aaps.core.interfaces.plugin.PluginType
+import app.aaps.core.interfaces.logging.AAPSLogger
+import app.aaps.core.interfaces.rx.bus.RxBus
+import app.aaps.core.events.iob.EventNewHistoryData
+import app.aaps.plugins.source.AbstractBgSourcePlugin
+import app.aaps.core.interfaces.resources.ResourceHelper
+import app.aaps.core.interfaces.sharedPreferences.SP
+import app.aaps.core.ui.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import javax.inject.Inject
 
 class XdripAidlService(
     private val context: Context,
