@@ -4,11 +4,13 @@ package app.aaps.plugins.source.xDripAidl
 
 import plugins.source.src.main.java.com.eveningoutpost.dexdrip.BgData
 import plugins.source.src.main.aidl.com.eveningoutpost.dexdrip.IBgDataCallback
+import plugins.source.src.main.res.xml.pref_xdrip_aidl
 
 import android.content.Context
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
-import info.nightscout.androidaps.R
+//import info.nightscout.androidaps.R
+import app.aaps.core.ui.R // 👈 R 文件替换为新版
 
 import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.DataSourcePlugin
