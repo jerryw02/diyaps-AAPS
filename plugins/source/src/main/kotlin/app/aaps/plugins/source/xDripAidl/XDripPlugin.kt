@@ -15,7 +15,8 @@ import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
 import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
 import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
 
-import app.aaps.core.interfaces.sharedPreferences.SP             
+import app.aaps.core.interfaces.sharedPreferences.SP
+
 import app.aaps.core.interfaces.logging.AAPSLogger              
 import app.aaps.core.interfaces.logging.LTag                
 import io.reactivex.rxjava3.disposables.CompositeDisposable
