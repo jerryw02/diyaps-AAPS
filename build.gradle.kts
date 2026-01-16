@@ -46,15 +46,15 @@ allprojects {
             freeCompilerArgs.add("-opt-in=kotlin.ExperimentalUnsignedTypes")
             freeCompilerArgs.add("-Xannotation-default-target=param-property")
             freeCompilerArgs.add("-Xjvm-default=all") //Support @JvmDefault
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         }
     }
     
     // 配置 Java 编译选项
     gradle.projectsEvaluated {
         tasks.withType<JavaCompile> {
-            sourceCompatibility = JavaVersion.VERSION_17.toString()
-            targetCompatibility = JavaVersion.VERSION_17.toString()
+            sourceCompatibility = JavaVersion.VERSION_21.toString()
+            targetCompatibility = JavaVersion.VERSION_21.toString()
             val compilerArgs = options.compilerArgs
             compilerArgs.add("-Xlint:deprecation")
             compilerArgs.add("-Xlint:unchecked")
@@ -75,8 +75,8 @@ subprojects {
             // 获取 Android 扩展并配置
             extensions.findByType<BaseExtension>()?.apply {
                 compileOptions {
-                    sourceCompatibility = JavaVersion.VERSION_17
-                    targetCompatibility = JavaVersion.VERSION_17
+                    sourceCompatibility = JavaVersion.VERSION_21
+                    targetCompatibility = JavaVersion.VERSION_21
                 }
             }
         }
