@@ -2,6 +2,9 @@
 
 package app.aaps.plugins.source.xDripAidl
 
+import plugins.source.src.main.java.com.eveningoutpost.dexdrip.BgData
+import plugins.source.src.main.aidl.com.eveningoutpost.dexdrip.IBgDataCallback
+
 import android.content.Context
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
