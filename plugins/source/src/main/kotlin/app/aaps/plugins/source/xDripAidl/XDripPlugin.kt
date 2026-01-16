@@ -50,23 +50,28 @@ class XDripPlugin @Inject constructor(
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
-import dagger.android.HasAndroidInjector
+//import dagger.android.HasAndroidInjector
+import dagger.android.AndroidInjector
 import info.nightscout.androidaps.R
-import info.nightscout.androidaps.database.data.GlucoseValue
-import info.nightscout.androidaps.interfaces.*
-import info.nightscout.androidaps.logging.AAPSLogger
-import info.nightscout.androidaps.logging.LTag
-import info.nightscout.androidaps.plugins.bus.RxBus
-import info.nightscout.androidaps.plugins.iob.iobCobCalculator.events.EventNewHistoryData
-import info.nightscout.androidaps.utils.T
-import info.nightscout.androidaps.utils.resources.ResourceHelper
-import info.nightscout.androidaps.utils.rx.AapsSchedulers
-import info.nightscout.shared.sharedPreferences.SP
+
+import app.aaps.core.interfaces.plugin.PluginBase
+import app.aaps.core.interfaces.plugin.DataSourcePlugin
+import app.aaps.core.interfaces.plugin.PluginDescription
+import app.aaps.core.interfaces.plugin.PluginType
+import app.aaps.core.interfaces.plugin.ActivePluginProvider
+import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
+import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
+import app.aaps.core.utils.rx.AapsSchedulers                    // ✅ 新路径
+
+import app.aaps.core.interfaces.sharedPreferences.SP             
+import app.aaps.core.interfaces.logging.AAPSLogger              
+import app.aaps.core.interfaces.logging.LTag                
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
+
 
 // ❌ 不要 @Inject on class or constructor!
 class XDripPlugin(
