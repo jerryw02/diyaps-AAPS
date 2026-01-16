@@ -10,7 +10,7 @@ plugins {
 android {
     namespace = "app.aaps.plugins.source"
 
-    compileSdk = 35
+    compileSdk = 36
 
     buildFeatures {
         aidl = true
