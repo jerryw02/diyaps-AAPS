@@ -37,6 +37,8 @@ dependencies {
     implementation(project(":core:utils"))          // ← 包含 AapsSchedulers, ResourceHelper 等
     implementation(project(":core:validators"))
     implementation(project(":shared:impl"))
+    implementation(project(":shared:preferences"))
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
 
     // Plugin-specific dependencies
     
