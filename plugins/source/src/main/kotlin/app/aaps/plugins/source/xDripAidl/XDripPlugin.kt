@@ -1,6 +1,10 @@
 
 package app.aaps.plugins.source.xDripAidl
 
+import com.eveningoutpost.dexdrip.IBgDataCallback
+import com.eveningoutpost.dexdrip.IBgDataService
+import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
+
 import android.content.Context
 import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.interfaces.logging.AAPSLogger
