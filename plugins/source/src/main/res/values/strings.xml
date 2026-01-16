@@ -47,6 +47,8 @@
     <string name="xdrip_aidl">xDrip+ AIDL</string>
     <string name="xdrip_aidl_short">xDrip AIDL</string>
     <string name="xdrip_aidl_description">Receive glucose data from xDrip+ via AIDL service</string>
+    <string name="xdrip_aidl_initializing">Initializing…</string>
+    <string name="xdrip_aidl_no_data">No data</string>
 
     <!-- 设置项 -->
     <string name="key_xdrip_aidl_enabled">key_xdrip_aidl_enabled</string>
