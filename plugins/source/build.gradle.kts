@@ -39,7 +39,7 @@ dependencies {
     implementation(project(":shared:impl"))
 
     // Plugin-specific dependencies
-    implementation(project(":plugins:bus"))         // ← RxBus is here
+    
     implementation(project(":plugins:aps"))         // ← ActivePluginProvider, etc.
 
     // Test dependencies
