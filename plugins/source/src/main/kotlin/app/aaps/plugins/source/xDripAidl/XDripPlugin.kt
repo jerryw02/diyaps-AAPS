@@ -1,3 +1,4 @@
+/*
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
@@ -244,7 +245,9 @@ class XDripPlugin @Inject constructor(
     }
 }
 
-/*
+*/
+
+
 
 // 修改插件主类以适应 AAPS 的依赖注入
 
@@ -650,7 +653,7 @@ class XDripPlugin @Inject constructor(
     }
 }
 
-*/
+
 
 
 /*
