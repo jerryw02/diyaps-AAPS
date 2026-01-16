@@ -86,9 +86,9 @@ subprojects {
 // Setup all reports aggregation
 apply(from = "jacoco_aggregation.gradle.kts")
 
-tasks.register<Delete>("clean").configure {
-    delete(rootProject.layout.buildDirectory)
-}
+//tasks.register<Delete>("clean").configure {
+//    delete(rootProject.layout.buildDirectory)
+//}
 
 /*
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
