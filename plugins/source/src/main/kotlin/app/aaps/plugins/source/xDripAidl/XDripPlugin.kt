@@ -42,7 +42,7 @@ class XDripPlugin @Inject constructor(
         .mainType(PluginType.BGSOURCE)
         .pluginName(R.string.xdrip_aidl)  
         .shortName(R.string.xdrip_aidl_short)
-        .description(R.string.xdrip_aidl_description)
+        .description(R.string.xdrip_aidl_description),
     aapsLogger, rh
 ), BgSource {
 
