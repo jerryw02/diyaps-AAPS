@@ -35,7 +35,6 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
-
 // ❌ 不要 @Inject on class or constructor!
 class XDripPlugin(
     private val context: Context,      // ApplicationContext
