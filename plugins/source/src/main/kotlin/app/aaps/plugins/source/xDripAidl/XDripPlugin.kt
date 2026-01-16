@@ -1,3 +1,4 @@
+/*
 package app.aaps.plugins.source.xDripAidl
 
 // ✅ 正确 import AIDL 生成的接口和数据类
@@ -118,8 +119,9 @@ class XDripPlugin(
         )
     }
 }
+*/
 
-/*
+
 //修改插件主类以适应 AAPS 的依赖注入
 
 package app.aaps.plugins.source.xDripAidl
@@ -525,7 +527,7 @@ class XDripPlugin(
         return stats
     }
 }
-*/
+
 
 /*
 package app.aaps.plugins.source.xDripAidl
