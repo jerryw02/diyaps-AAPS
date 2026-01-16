@@ -14,7 +14,7 @@ import app.aaps.core.interfaces.plugin.PluginType
 import app.aaps.core.interfaces.plugin.ActivePluginProvider
 import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
 import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
-import app.aaps.core.utils.rx.AapsSchedulers                    // ✅ 新路径
+import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
 
 import app.aaps.core.interfaces.sharedPreferences.SP             
 import app.aaps.core.interfaces.logging.AAPSLogger              
