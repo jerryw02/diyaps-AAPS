@@ -13,7 +13,8 @@ import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.R
 //import info.nightscout.androidaps.utils.resources.ResourceHelper
 import app.aaps.core.interfaces.resources.ResourceHelper
-import info.nightscout.shared.sharedPreferences.SP
+//import info.nightscout.shared.sharedPreferences.SP
+import app.aaps.core.interfaces.sharedPreferences.SP
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
