@@ -160,9 +160,9 @@ import javax.inject.Inject
 // ❌ 不要 @Inject on class or constructor!
 class XDripPlugin(
     private val context: Context,      // ApplicationContext
-    aapsLogger: AAPSLogger,
-    rh: ResourceHelper,
-    sp: SP
+    private val aapsLogger: AAPSLogger,
+    private val rh: ResourceHelper,
+    private val sp: SP
 ) : PluginBase(
     PluginDescription()
         .mainType(PluginType.DATASOURCE)
