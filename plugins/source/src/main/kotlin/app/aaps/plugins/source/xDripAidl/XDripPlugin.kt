@@ -11,7 +11,8 @@ import app.aaps.core.utils.receivers.DataWorkerStorage
 import app.aaps.plugins.source.AbstractBgSourceWithSensorInsertLogPlugin
 import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.R
-import info.nightscout.androidaps.utils.resources.ResourceHelper
+//import info.nightscout.androidaps.utils.resources.ResourceHelper
+import app.aaps.core.interfaces.resources.ResourceHelper
 import info.nightscout.shared.sharedPreferences.SP
 import java.text.SimpleDateFormat
 import java.util.*
