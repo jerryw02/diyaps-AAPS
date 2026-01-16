@@ -58,8 +58,8 @@ allprojects {
     
     // 为所有项目设置 Java 版本
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     
     // 为 Kotlin 项目设置 JVM 目标版本
@@ -76,8 +76,8 @@ subprojects {
         if (project.hasProperty('android')) {
             android {
                 compileOptions {
-                    sourceCompatibility JavaVersion.VERSION_17
-                    targetCompatibility JavaVersion.VERSION_17
+                    sourceCompatibility = JavaVersion.VERSION_17
+                    targetCompatibility = JavaVersion.VERSION_17
                 }
             }
         }
