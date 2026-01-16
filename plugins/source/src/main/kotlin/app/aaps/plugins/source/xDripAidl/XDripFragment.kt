@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import app.aaps.core.ui.R // 👈 R 文件替换为新版
-import kotlinx.android.synthetic.main.fragment_xdrip_aidl.* // ⚠️ 语法糖保留，但需确保布局文件存在
+import kotlinx.android.synthetic.main.fragment_xdrip_aidl.* // ⚠️ 语法保留，但需确保布局文件存在
 
 class XDripFragment : Fragment() {
 
