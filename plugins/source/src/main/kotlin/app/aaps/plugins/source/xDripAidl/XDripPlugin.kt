@@ -1,127 +1,3 @@
-/*
-package app.aaps.plugins.source.xDripAidl
-
-// ✅ 正确 import AIDL 生成的接口和数据类
-import com.eveningoutpost.dexdrip.IBgDataCallback
-import com.eveningoutpost.dexdrip.IBgDataService
-import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
-
-import android.content.Context
-import dagger.android.AndroidInjector
-import dagger.android.HasAndroidInjector
-//import info.nightscout.androidaps.R
-import app.aaps.core.ui.R // 👈 R 文件替换为新版
-
-import app.aaps.core.interfaces.plugin.PluginBase
-import app.aaps.core.interfaces.plugin.DataSourcePlugin
-import app.aaps.core.interfaces.plugin.PluginDescription
-import app.aaps.core.interfaces.plugin.PluginType
-//import app.aaps.core.interfaces.plugin.ActivePluginProvider
-import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
-import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
-import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
-
-import app.aaps.core.interfaces.sharedPreferences.SP
-import app.aaps.core.interfaces.rx.events.EventNewBG
-
-import app.aaps.core.interfaces.logging.AAPSLogger              
-import app.aaps.core.interfaces.logging.LTag                
-import io.reactivex.rxjava3.disposables.CompositeDisposable
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.atomic.AtomicLong
-import javax.inject.Inject
-
-
-class XDripPlugin(
-    private val pluginDescription: PluginDescription,
-    private val aapsLogger: AAPSLogger,
-    private val rh: ResourceHelper,
-    private val sp: SP,
-    private val context: Context,
-) : PluginBase(pluginDescription, aapsLogger, rh), DataSourcePlugin {
-
-    @Inject lateinit var rxBus: app.aaps.core.interfaces.rx.bus.RxBus
-
-    private companion object {
-        const val PREF_ENABLED = "key_xdrip_aidl_enabled"
-        const val TAG = "XDripAidlPlugin"
-    }
-
-    private var service: IBgDataService? = null
-    private val callback = object : IBgDataCallback.Stub() {
-        override fun onNewBgData(data: BgData?) {
-            data?.let { bgData ->
-                if (!bgData.isValid()) {
-                    aapsLogger.debug("$TAG: Received invalid BgData (glucose=${bgData.glucose})")
-                    return
-                }
-                val glucoseValue = convertToGlucoseValue(bgData)
-                CoroutineScope(Dispatchers.Main).launch {
-                    rxBus.send(EventNewBg(glucoseValue))
-                }
-            }
-        }
-    }
-
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            service = IBgDataService.Stub.asInterface(binder)
-            try {
-                service?.registerCallback(callback)
-                aapsLogger.info("$TAG: Connected to xDrip service")
-            } catch (e: RemoteException) {
-                aapsLogger.error("$TAG: Failed to register callback", e)
-            }
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            service = null
-            aapsLogger.warn("$TAG: xDrip service disconnected")
-        }
-    }
-
-    override fun onStartJob() {
-        if (!sp.getBoolean(PREF_ENABLED, false)) return
-
-        val intent = Intent("com.eveningoutpost.dexdrip.BgDataService")
-        intent.setPackage("com.eveningoutpost.dexdrip")
-        try {
-            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        } catch (e: Exception) {
-            aapsLogger.error("$TAG: Failed to bind to xDrip", e)
-        }
-    }
-
-    override fun onStopJob() {
-        try {
-            service?.unregisterCallback(callback)
-        } catch (e: RemoteException) {
-            aapsLogger.error("$TAG: Error unregistering callback", e)
-        }
-        try {
-            context.unbindService(connection)
-        } catch (e: IllegalArgumentException) {
-            // Not bound, ignore
-        }
-    }
-
-    override suspend fun getLatestBgData(): GlucoseValue? {
-        // Optional: implement pull-based retrieval if needed
-        return null
-    }
-
-    private fun convertToGlucoseValue(bgData: BgData): GlucoseValue {
-        return GlucoseValue(
-            timestamp = bgData.timestamp,
-            value = bgData.glucose,
-            source = bgData.source ?: "xDripAidl"
-        )
-    }
-}
-*/
-
-
 //修改插件主类以适应 AAPS 的依赖注入
 
 package app.aaps.plugins.source.xDripAidl
@@ -527,6 +403,129 @@ class XDripPlugin(
         return stats
     }
 }
+
+/* 简化版
+package app.aaps.plugins.source.xDripAidl
+
+// ✅ 正确 import AIDL 生成的接口和数据类
+import com.eveningoutpost.dexdrip.IBgDataCallback
+import com.eveningoutpost.dexdrip.IBgDataService
+import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
+
+import android.content.Context
+import dagger.android.AndroidInjector
+import dagger.android.HasAndroidInjector
+//import info.nightscout.androidaps.R
+import app.aaps.core.ui.R // 👈 R 文件替换为新版
+
+import app.aaps.core.interfaces.plugin.PluginBase
+import app.aaps.core.interfaces.plugin.DataSourcePlugin
+import app.aaps.core.interfaces.plugin.PluginDescription
+import app.aaps.core.interfaces.plugin.PluginType
+//import app.aaps.core.interfaces.plugin.ActivePluginProvider
+import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
+import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
+import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
+
+import app.aaps.core.interfaces.sharedPreferences.SP
+import app.aaps.core.interfaces.rx.events.EventNewBG
+
+import app.aaps.core.interfaces.logging.AAPSLogger              
+import app.aaps.core.interfaces.logging.LTag                
+import io.reactivex.rxjava3.disposables.CompositeDisposable
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.atomic.AtomicLong
+import javax.inject.Inject
+
+
+class XDripPlugin(
+    private val pluginDescription: PluginDescription,
+    private val aapsLogger: AAPSLogger,
+    private val rh: ResourceHelper,
+    private val sp: SP,
+    private val context: Context,
+) : PluginBase(pluginDescription, aapsLogger, rh), DataSourcePlugin {
+
+    @Inject lateinit var rxBus: app.aaps.core.interfaces.rx.bus.RxBus
+
+    private companion object {
+        const val PREF_ENABLED = "key_xdrip_aidl_enabled"
+        const val TAG = "XDripAidlPlugin"
+    }
+
+    private var service: IBgDataService? = null
+    private val callback = object : IBgDataCallback.Stub() {
+        override fun onNewBgData(data: BgData?) {
+            data?.let { bgData ->
+                if (!bgData.isValid()) {
+                    aapsLogger.debug("$TAG: Received invalid BgData (glucose=${bgData.glucose})")
+                    return
+                }
+                val glucoseValue = convertToGlucoseValue(bgData)
+                CoroutineScope(Dispatchers.Main).launch {
+                    rxBus.send(EventNewBg(glucoseValue))
+                }
+            }
+        }
+    }
+
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            service = IBgDataService.Stub.asInterface(binder)
+            try {
+                service?.registerCallback(callback)
+                aapsLogger.info("$TAG: Connected to xDrip service")
+            } catch (e: RemoteException) {
+                aapsLogger.error("$TAG: Failed to register callback", e)
+            }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            service = null
+            aapsLogger.warn("$TAG: xDrip service disconnected")
+        }
+    }
+
+    override fun onStartJob() {
+        if (!sp.getBoolean(PREF_ENABLED, false)) return
+
+        val intent = Intent("com.eveningoutpost.dexdrip.BgDataService")
+        intent.setPackage("com.eveningoutpost.dexdrip")
+        try {
+            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        } catch (e: Exception) {
+            aapsLogger.error("$TAG: Failed to bind to xDrip", e)
+        }
+    }
+
+    override fun onStopJob() {
+        try {
+            service?.unregisterCallback(callback)
+        } catch (e: RemoteException) {
+            aapsLogger.error("$TAG: Error unregistering callback", e)
+        }
+        try {
+            context.unbindService(connection)
+        } catch (e: IllegalArgumentException) {
+            // Not bound, ignore
+        }
+    }
+
+    override suspend fun getLatestBgData(): GlucoseValue? {
+        // Optional: implement pull-based retrieval if needed
+        return null
+    }
+
+    private fun convertToGlucoseValue(bgData: BgData): GlucoseValue {
+        return GlucoseValue(
+            timestamp = bgData.timestamp,
+            value = bgData.glucose,
+            source = bgData.source ?: "xDripAidl"
+        )
+    }
+}
+*/
 
 
 /*
