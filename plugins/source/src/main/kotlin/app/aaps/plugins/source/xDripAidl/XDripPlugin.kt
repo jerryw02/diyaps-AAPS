@@ -46,7 +46,7 @@ class XDripPlugin(
         const val TAG = "XDripAidlPlugin"
     }
 
-    private var service: IBgRemoteService? = null
+    private var service: IBgDataService? = null
     private val callback = object : IBgDataCallback.Stub() {
         override fun onNewBgData(data: BgData?) {
             data?.let { bgData ->
@@ -64,7 +64,7 @@ class XDripPlugin(
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            service = IBgRemoteService.Stub.asInterface(binder)
+            service = IBgDataService.Stub.asInterface(binder)
             try {
                 service?.registerCallback(callback)
                 aapsLogger.info("$TAG: Connected to xDrip service")
@@ -82,7 +82,7 @@ class XDripPlugin(
     override fun onStartJob() {
         if (!sp.getBoolean(PREF_ENABLED, false)) return
 
-        val intent = Intent("com.eveningoutpost.dexdrip.BgRemoteService")
+        val intent = Intent("com.eveningoutpost.dexdrip.BgDataService")
         intent.setPackage("com.eveningoutpost.dexdrip")
         try {
             context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
