@@ -2,9 +2,10 @@
 
 package app.aaps.plugins.source.xDripAidl
 
-import plugins.source.src.main.java.com.eveningoutpost.dexdrip.BgData
-import plugins.source.src.main.aidl.com.eveningoutpost.dexdrip.IBgDataCallback
-import plugins.source.src.main.res.xml.pref_xdrip_aidl
+// ✅ 正确 import AIDL 生成的接口和数据类
+import com.eveningoutpost.dexdrip.IBgDataCallback
+import com.eveningoutpost.dexdrip.IBgDataService
+import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
 
 import android.content.Context
 import dagger.android.AndroidInjector
