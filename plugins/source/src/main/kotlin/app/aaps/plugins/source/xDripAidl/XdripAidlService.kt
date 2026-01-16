@@ -163,13 +163,13 @@ class XdripAidlService(
                 aapsLogger.error(LTag.XDRIP,
                     "[${TEST_TAG}_REGISTER_ERROR] Failed to register callback with xDrip service", e)
                 handleError("Failed to register callback: ${e.message}")
-                dataStatistics["register_error"] = e.message
+                dataStatistics["register_error"] = e.message.orEmpty()
                 dataStatistics["last_error_time"] = System.currentTimeMillis()
             } catch (e: Exception) {
                 aapsLogger.error(LTag.XDRIP,
                     "[${TEST_TAG}_UNEXPECTED_ERROR] Unexpected error during service connection", e)
                 handleError("Unexpected error: ${e.message}")
-                dataStatistics["unexpected_error"] = e.message
+                dataStatistics["unexpected_error"] = e.message.orEmpty()
             }
         }
 
@@ -303,7 +303,7 @@ class XdripAidlService(
             _connectionState.value = ConnectionState.Error("Permission denied: ${e.message}")
             handleError("Permission denied: ${e.message}")
 
-            dataStatistics["security_exceptions"] = e.message
+            dataStatistics["security_exceptions"] = e.message.orEmpty()
             dataStatistics["last_security_exception"] = System.currentTimeMillis()
         } catch (e: Exception) {
             aapsLogger.error(LTag.XDRIP,
@@ -312,7 +312,7 @@ class XdripAidlService(
             _connectionState.value = ConnectionState.Error("Exception: ${e.message}")
             handleError("Exception: ${e.message}")
 
-            dataStatistics["bind_exceptions"] = e.message
+            dataStatistics["bind_exceptions"] = e.message.orEmpty()
             dataStatistics["last_bind_exception"] = System.currentTimeMillis()
         }
     }
@@ -399,12 +399,12 @@ class XdripAidlService(
             aapsLogger.error(LTag.XDRIP,
                 "[${TEST_TAG}_GET_DATA_REMOTE_ERROR] RemoteException when getting latest BG data", e)
             handleRemoteException(e)
-            dataStatistics["get_data_remote_errors"] = e.message
+            dataStatistics["get_data_remote_errors"] = e.message.orEmpty()
             null
         } catch (e: Exception) {
             aapsLogger.error(LTag.XDRIP,
                 "[${TEST_TAG}_GET_DATA_EXCEPTION] Exception when getting latest BG data", e)
-            dataStatistics["get_data_exceptions"] = e.message
+            dataStatistics["get_data_exceptions"] = e.message.orEmpty()
             null
         }
     }
@@ -435,12 +435,12 @@ class XdripAidlService(
         } catch (e: RemoteException) {
             aapsLogger.error(LTag.XDRIP,
                 "[${TEST_TAG}_GET_SYNC_REMOTE_ERROR] RemoteException in sync call", e)
-            dataStatistics["sync_data_remote_errors"] = e.message
+            dataStatistics["sync_data_remote_errors"] = e.message.orEmpty()
             null
         } catch (e: Exception) {
             aapsLogger.error(LTag.XDRIP,
                 "[${TEST_TAG}_GET_SYNC_EXCEPTION] Exception in sync call", e)
-            dataStatistics["sync_data_exceptions"] = e.message
+            dataStatistics["sync_data_exceptions"] = e.message.orEmpty()
             null
         }
     }
@@ -505,7 +505,7 @@ class XdripAidlService(
         _connectionState.value = ConnectionState.Error("Remote exception: ${e.message}")
 
         dataStatistics["remote_exceptions_handled"] = (dataStatistics["remote_exceptions_handled"] as? Int ?: 0) + 1
-        dataStatistics["last_remote_exception"] = e.message
+        dataStatistics["last_remote_exception"] = e.message.orEmpty()
         dataStatistics["last_remote_exception_time"] = System.currentTimeMillis()
 
         aapsLogger.debug(LTag.XDRIP,
