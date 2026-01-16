@@ -3,7 +3,6 @@
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
-//import dagger.android.HasAndroidInjector
 import dagger.android.AndroidInjector
 import info.nightscout.androidaps.R
 
