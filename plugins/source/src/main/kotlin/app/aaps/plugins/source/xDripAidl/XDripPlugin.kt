@@ -32,9 +32,9 @@ import javax.inject.Inject
 
 
 class XDripPlugin(
-    pluginDescription: PluginDescription,
-    aapsLogger: AAPSLogger,
-    rh: ResourceHelper,
+    private val pluginDescription: PluginDescription,
+    private valaapsLogger: AAPSLogger,
+    private val rh: ResourceHelper,
     private val sp: SP,
     private val context: Context,
 ) : PluginBase(pluginDescription, aapsLogger, rh), DataSourcePlugin {
