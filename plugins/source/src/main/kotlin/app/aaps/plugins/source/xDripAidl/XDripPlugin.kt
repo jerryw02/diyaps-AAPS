@@ -35,14 +35,17 @@ class XDripPlugin @Inject constructor(
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
         .mainType(PluginType.BGSOURCE)
-        .pluginName(app.aaps.core.ui.R.string.xdrip_aidl)  // 使用完整的包名
-        .shortName(app.aaps.core.ui.R.string.xdrip_aidl_short)
-        .description(app.aaps.core.ui.R.string.xdrip_aidl_description),
+        .pluginName("xDrip+ AIDL")  // 硬编码字符串
+        .shortName("xDrip AIDL")     // 硬编码字符串
+        .description("Receive glucose data from xDrip+ via AIDL service"),  // 硬编码字符串
     aapsLogger, rh
 ), BgSource {
 
     companion object {
         private const val TEST_TAG = "XDripPlugin_TEST"
+        private const val KEY_ENABLED = "xdrip_aidl_enabled"
+        private const val KEY_MAX_AGE = "xdrip_aidl_max_age"
+        private const val KEY_DEBUG_LOG = "xdrip_aidl_debug_log"
     }
 
     @set:Inject
@@ -53,6 +56,9 @@ class XDripPlugin @Inject constructor(
 
     @set:Inject
     var dataWorkerStorage: DataWorkerStorage? = null
+
+    // 使用自己的 CoroutineScope
+    private val scope = CoroutineScope(Dispatchers.Main)
 
     override var sensorBatteryLevel: Int = -1
     private var advancedFiltering = false
@@ -208,12 +214,9 @@ class XDripPlugin @Inject constructor(
         return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
     }
 
-    // 公开API方法 - 修正suspend函数调用
-    fun getLatestBgData(callback: (com.eveningoutpost.dexdrip.BgData?) -> Unit) {
-        scope.launch {
-            val data = aidlService?.getLatestBgData()
-            callback(data)
-        }
+    // 同步版本（避免协程问题）
+    fun getLatestBgData(): com.eveningoutpost.dexdrip.BgData? {
+        return aidlService?.getLatestBgDataSync()
     }
 
     fun isConnected(): Boolean {
