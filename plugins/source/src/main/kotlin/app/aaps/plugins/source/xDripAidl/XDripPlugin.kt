@@ -50,9 +50,7 @@ class XDripPlugin @Inject constructor(
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
-import androidx.annotation.NonNull
-import androidx.annotation.WorkerThread
-import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.android.HasAndroidInjector
 import info.nightscout.androidaps.R
 import info.nightscout.androidaps.database.data.GlucoseValue
 import info.nightscout.androidaps.interfaces.*
@@ -70,14 +68,12 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
-class XDripPlugin @Inject constructor(
-    @ApplicationContext @NonNull private val context: Context,
-    @NonNull aapsLogger: AAPSLogger,
-    @NonNull rh: ResourceHelper,
-    @NonNull sp: SP,
-    @NonNull private val rxBus: RxBus,
-    @NonNull private val aapsSchedulers: AapsSchedulers,
-    @NonNull private val activePlugin: ActivePluginProvider
+// ❌ 不要 @Inject on class or constructor!
+class XDripPlugin(
+    private val context: Context,      // ApplicationContext
+    aapsLogger: AAPSLogger,
+    rh: ResourceHelper,
+    sp: SP
 ) : PluginBase(
     PluginDescription()
         .mainType(PluginType.DATASOURCE)
@@ -89,16 +85,20 @@ class XDripPlugin @Inject constructor(
     aapsLogger, rh, sp
 ), DataSourcePlugin {
 
+    // ✅ 使用字段注入（AAPS 会在创建后自动 inject）
+    @Inject lateinit var rxBus: RxBus
+    @Inject lateinit var aapsSchedulers: AapsSchedulers
+    @Inject lateinit var activePlugin: ActivePluginProvider
+
     companion object {
         private const val TEST_TAG = "XDripPlugin_TEST"
     }
 
-    // 移除 CoroutineScope —— 改用 Rx 或同步调用
     private val disposable = CompositeDisposable()
-
     private var xdripService: XdripAidlService? = null
     private val lastProcessedTimestamp = AtomicLong(0)
     private var lastGlucoseValue: Double = 0.0
+
 
     // 统计 & 配置字段保持不变...
     private var totalDataReceived = 0
@@ -120,9 +120,14 @@ class XDripPlugin @Inject constructor(
     private val debugLogging: Boolean
         get() = sp.getBoolean(R.string.key_xdrip_aidl_debug_log, true)
 
+     init {
+        // ✅ 触发 Dagger 注入（AAPS 要求）
+        (context as? HasAndroidInjector)?.androidInjector()?.inject(this)
+            ?: throw IllegalStateException("Context must implement HasAndroidInjector")
+    }   
+
     override fun advancedFilteringSupported(): Boolean = false
 
-    // ✅ 使用新生命周期方法
     override fun onStartJob(pluginStartReason: String): Boolean {
         aapsLogger.info(LTag.XDRIP,
             "[${TEST_TAG}_PLUGIN_START] ========== xDrip AIDL Plugin Starting ($pluginStartReason) ==========")
@@ -145,23 +150,16 @@ class XDripPlugin @Inject constructor(
     override fun specialEnableCondition(): Boolean = isEnabled
 
     private fun initializeService() {
-        logPluginFlow("SERVICE_INIT_START", "Initializing xDrip BG data service")
-
-        // ❌ 不再尝试获取 LifecycleOwner —— 插件是后台组件
-        xdripService = XdripAidlService(context, aapsLogger, null).apply {
+        // 注意：现在可以安全使用 rxBus, aapsSchedulers 等（因为已注入）
+        xdripService = XdripAidlService(context, aapsLogger).apply {
             addListener(object : XdripAidlService.XdripDataListener {
                 override fun onNewBgData(data: BgData) {
-                    logPluginFlow("LISTENER_TRIGGERED", "Service listener received new BG data")
                     handleNewBgData(data)
                 }
-
                 override fun onConnectionStateChanged(connected: Boolean) {
-                    logPluginFlow("CONNECTION_CHANGE", "Connection state changed: $connected")
                     handleConnectionStateChanged(connected)
                 }
-
                 override fun onError(error: String) {
-                    logPluginFlow("SERVICE_ERROR", "Service reported error: $error")
                     handleServiceError(error)
                 }
             })
