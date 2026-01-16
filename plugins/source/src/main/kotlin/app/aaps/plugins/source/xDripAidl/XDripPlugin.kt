@@ -10,22 +10,23 @@ import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable�
 import android.content.Context
 import dagger.android.AndroidInjector
 import dagger.android.HasAndroidInjector
-//import info.nightscout.androidaps.R
 import app.aaps.core.ui.R // 👈 R 文件替换为新版
+import app.aaps.core.data.time.T
 
 import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.DataSourcePlugin
 import app.aaps.core.interfaces.plugin.PluginDescription
-import app.aaps.core.interfaces.plugin.PluginType
+//import app.aaps.core.interfaces.plugin.PluginType
+import app.aaps.core.data.plugin.PluginType
 //import app.aaps.core.interfaces.plugin.ActivePluginProvider
 import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
-import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
+//import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
+import app.aaps.core.interfaces.resources.ResourceHelper
 import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
-
 import app.aaps.core.interfaces.sharedPreferences.SP
-
 import app.aaps.core.interfaces.logging.AAPSLogger              
 import app.aaps.core.interfaces.logging.LTag                
+
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import java.text.SimpleDateFormat
 import java.util.*
