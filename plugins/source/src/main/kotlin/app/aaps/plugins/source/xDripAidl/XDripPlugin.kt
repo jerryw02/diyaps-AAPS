@@ -367,9 +367,9 @@ class XDripPlugin(
 
     override fun getRawData(): RawDisplayData {
         return RawDisplayData().apply {
-            glucose = lastGlucoseValue
-            timestamp = lastProcessedTimestamp.get()
-            source = "xDrip+ AIDL"
+            val glucose = lastGlucoseValue
+            val timestamp = lastProcessedTimestamp.get()
+            val source = "xDrip+ AIDL"
         }
     }
 
