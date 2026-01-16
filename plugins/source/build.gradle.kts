@@ -41,6 +41,11 @@ dependencies {
     implementation(project(":core:validators"))
     implementation(project(":shared:impl"))
 
+    implementation project(':plugins:bus')        // 👈 添加这一行
+    implementation project(':utils')
+    implementation project(':database')
+    implementation project(':shared')
+
     testImplementation(libs.androidx.work.testing)
     testImplementation(project(":shared:tests"))
 
