@@ -39,6 +39,7 @@ dependencies {
     implementation(project(":core:validators"))
     implementation(project(":shared:impl"))
     implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
     // Plugin-specific dependencies
     
