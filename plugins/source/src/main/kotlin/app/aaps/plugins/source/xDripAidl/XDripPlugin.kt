@@ -25,7 +25,8 @@ import app.aaps.core.interfaces.resources.ResourceHelper
 import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
 import app.aaps.core.interfaces.sharedPreferences.SP
 import app.aaps.core.interfaces.logging.AAPSLogger              
-import app.aaps.core.interfaces.logging.LTag                
+import app.aaps.core.interfaces.logging.LTag               
+import app.aaps.database.entities.GlucoseValue
 
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import java.text.SimpleDateFormat
