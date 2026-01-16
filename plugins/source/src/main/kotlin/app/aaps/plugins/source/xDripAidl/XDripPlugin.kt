@@ -20,7 +20,8 @@ import app.aaps.core.utils.receivers.DataWorkerStorage
 import app.aaps.plugins.source.AbstractBgSourceWithSensorInsertLogPlugin
 import dagger.android.HasAndroidInjector
 //import info.nightscout.androidaps.R
-import app.aaps.core.ui.R  // 修正：使用正确的 R 文件
+//import app.aaps.core.ui.R  // 修正：使用正确的 R 文件
+import app.aaps.plugins.source.R
 //import info.nightscout.androidaps.utils.resources.ResourceHelper
 import app.aaps.core.interfaces.resources.ResourceHelper
 //import info.nightscout.shared.sharedPreferences.SP
