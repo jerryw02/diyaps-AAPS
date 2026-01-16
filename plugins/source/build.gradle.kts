@@ -7,7 +7,6 @@ plugins {
     id("jacoco-module-dependencies")
 }
 
-
 android {
     namespace = "app.aaps.plugins.source"
 
@@ -17,43 +16,42 @@ android {
         aidl = true
     }
 
-    // ✅ 新版 JVM 目标配置（替代 kotlinOptions）
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // ✅ 关键：在 android 块内配置 Kotlin 的 jvmToolchain
     kotlin {
         jvmToolchain(17)
     }
-    
 }
 
 dependencies {
+    // Core modules (AAPS v3+ uses :core:* structure)
     implementation(project(":core:data"))
     implementation(project(":core:interfaces"))
     implementation(project(":core:keys"))
     implementation(project(":core:objects"))
     implementation(project(":core:nssdk"))
     implementation(project(":core:ui"))
-    implementation(project(":core:utils"))
+    implementation(project(":core:utils"))          // ← 包含 AapsSchedulers, ResourceHelper 等
     implementation(project(":core:validators"))
     implementation(project(":shared:impl"))
 
-    implementation project(':plugins:bus')        // 👈 添加这一行
-    implementation project(':utils')
-    implementation project(':database')
-    implementation project(':shared')
+    // Plugin-specific dependencies
+    implementation(project(":plugins:bus"))         // ← RxBus is here
+    implementation(project(":plugins:aps"))         // ← ActivePluginProvider, etc.
 
+    // Test dependencies
     testImplementation(libs.androidx.work.testing)
     testImplementation(project(":shared:tests"))
 
+    // Annotation processors
     ksp(libs.com.google.dagger.compiler)
     ksp(libs.com.google.dagger.android.processor)
 }
 
-// ✅ 强制覆盖：确保所有 Kotlin 编译任务使用 JVM 17
+// Enforce JVM 17 for Kotlin compilation
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
 }
