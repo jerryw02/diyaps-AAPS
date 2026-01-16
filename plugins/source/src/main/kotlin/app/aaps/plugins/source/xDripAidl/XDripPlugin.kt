@@ -5,6 +5,10 @@ import com.eveningoutpost.dexdrip.IBgDataCallback
 import com.eveningoutpost.dexdrip.IBgDataService
 import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
 
+// 第61行修复（需要确保依赖已添加）
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
 import android.content.Context
 import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.interfaces.logging.AAPSLogger
@@ -35,9 +39,9 @@ class XDripPlugin @Inject constructor(
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
         .mainType(PluginType.BGSOURCE)
-        .pluginName("xDrip+ AIDL")  // 硬编码字符串
-        .shortName("xDrip AIDL")     // 硬编码字符串
-        .description("Receive glucose data from xDrip+ via AIDL service"),  // 硬编码字符串
+        .pluginName(R.string.xdrip_aidl)  
+        .shortName(R.string.xdrip_aidl_short)
+        .description(R.string.xdrip_aidl_description)
     aapsLogger, rh
 ), BgSource {
 
@@ -59,7 +63,7 @@ class XDripPlugin @Inject constructor(
 
     // 使用自己的 CoroutineScope
     private val scope = CoroutineScope(Dispatchers.Main)
-
+    
     override var sensorBatteryLevel: Int = -1
     private var advancedFiltering = false
 
