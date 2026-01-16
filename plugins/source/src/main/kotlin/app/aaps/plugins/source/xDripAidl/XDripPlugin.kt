@@ -11,7 +11,7 @@ import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.DataSourcePlugin
 import app.aaps.core.interfaces.plugin.PluginDescription
 import app.aaps.core.interfaces.plugin.PluginType
-import app.aaps.core.interfaces.plugin.ActivePluginProvider
+//import app.aaps.core.interfaces.plugin.ActivePluginProvider
 import app.aaps.core.interfaces.rx.bus.RxBus                    // ✅ 新路径
 import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
 import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
@@ -46,7 +46,7 @@ class XDripPlugin(
     // ✅ 使用字段注入（AAPS 会在创建后自动 inject）
     @Inject lateinit var rxBus: RxBus
     @Inject lateinit var aapsSchedulers: AapsSchedulers
-    @Inject lateinit var activePlugin: ActivePluginProvider
+    //@Inject lateinit var activePlugin: ActivePluginProvider
 
     companion object {
         private const val TEST_TAG = "XDripPlugin_TEST"
@@ -244,11 +244,11 @@ class XDripPlugin(
     }
 
     private fun storeGlucoseValue(glucoseValue: GlucoseValue) {
-        val nsClient = activePlugin.activeNsClient
-        if (nsClient == null) {
-            totalDataErrors++
-            return
-        }
+        //val nsClient = activePlugin.activeNsClient
+        //if (nsClient == null) {
+        //    totalDataErrors++
+        //    return
+        //}
 
         disposable.add(
             nsClient.nsAdd(glucoseValue)
@@ -274,21 +274,21 @@ class XDripPlugin(
         rxBus.send(EventNewHistoryData(glucoseValue.timestamp))
 
         // 通知IobCobCalculator更新
-        val calculator = activePlugin.activeIobCobCalculator
-        if (calculator != null) {
-            calculator.updateLatestBg(
-                glucoseValue.value,
-                glucoseValue.timestamp,
-                glucoseValue.trendArrow ?: ""
-            )
-        }
+        //val calculator = activePlugin.activeIobCobCalculator
+        //if (calculator != null) {
+        //    calculator.updateLatestBg(
+        //        glucoseValue.value,
+        //        glucoseValue.timestamp,
+        //        glucoseValue.trendArrow ?: ""
+        //    )
+        //}
     }
 
     private fun shouldTriggerLoop(data: BgData): Boolean {
-        val loopPlugin = activePlugin.activeLoop
-        if (loopPlugin == null || !loopPlugin.isEnabled) {
-            return false
-        }
+        //val loopPlugin = activePlugin.activeLoop
+        //if (loopPlugin == null || !loopPlugin.isEnabled) {
+        //    return false
+        //}
 
         // 检查是否达到最小处理间隔
         val timeSinceLastLoop = System.currentTimeMillis() - loopPlugin.lastRun
@@ -306,11 +306,11 @@ class XDripPlugin(
             "[${TEST_TAG}_LOOP_TRIGGER] Triggering loop processing from xDrip data: " +
             "${data.glucose} mg/dL")
         
-        val loopPlugin = activePlugin.activeLoop
-        if (loopPlugin != null) {
-            val reason = "Triggered by xDrip AIDL (BG: ${data.glucose} mg/dL)"
-            loopPlugin.invoke(reason, false)
-        }
+        //val loopPlugin = activePlugin.activeLoop
+        //if (loopPlugin != null) {
+        //    val reason = "Triggered by xDrip AIDL (BG: ${data.glucose} mg/dL)"
+        //    loopPlugin.invoke(reason, false)
+        //}
     }
 
     private fun handleConnectionStateChanged(connected: Boolean) {
