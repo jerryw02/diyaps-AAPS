@@ -8,7 +8,7 @@ import android.os.IBinder
 import android.os.RemoteException
 import androidx.annotation.VisibleForTesting
 import app.aaps.core.interfaces.logging.AAPSLogger
-import app.aaps.core.utils.LTag
+import app.aaps.core.interfaces.logging.LTag    
 import com.eveningoutpost.dexdrip.BgData
 import com.eveningoutpost.dexdrip.IBgDataService
 import com.eveningoutpost.dexdrip.IBgDataCallback
