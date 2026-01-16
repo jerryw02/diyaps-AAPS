@@ -1,4 +1,4 @@
-/*
+
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.Context
@@ -11,7 +11,8 @@ import app.aaps.core.interfaces.utils.DateUtil
 import app.aaps.core.utils.receivers.DataWorkerStorage
 import app.aaps.plugins.source.AbstractBgSourceWithSensorInsertLogPlugin
 import dagger.android.HasAndroidInjector
-import info.nightscout.androidaps.R
+//import info.nightscout.androidaps.R
+import app.aaps.core.ui.R  // 修正：使用正确的 R 文件
 //import info.nightscout.androidaps.utils.resources.ResourceHelper
 import app.aaps.core.interfaces.resources.ResourceHelper
 //import info.nightscout.shared.sharedPreferences.SP
@@ -26,13 +27,13 @@ class XDripPlugin @Inject constructor(
     injector: HasAndroidInjector,
     aapsLogger: AAPSLogger,
     rh: ResourceHelper,
-    sp: SP
+    private val sp: SP  // 改为构造函数参数
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
         .mainType(PluginType.BGSOURCE)
-        .pluginName(R.string.xdrip_aidl)
-        .shortName(R.string.xdrip_aidl_short)
-        .description(R.string.xdrip_aidl_description),
+        .pluginName(app.aaps.core.ui.R.string.xdrip_aidl)  // 使用完整的包名
+        .shortName(app.aaps.core.ui.R.string.xdrip_aidl_short)
+        .description(app.aaps.core.ui.R.string.xdrip_aidl_description),
     aapsLogger, rh
 ), BgSource {
 
@@ -203,9 +204,12 @@ class XDripPlugin @Inject constructor(
         return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
     }
 
-    // 公开API方法
-    fun getLatestBgData(): com.eveningoutpost.dexdrip.BgData? {
-        return aidlService?.getLatestBgData()
+    // 公开API方法 - 修正suspend函数调用
+    fun getLatestBgData(callback: (com.eveningoutpost.dexdrip.BgData?) -> Unit) {
+        scope.launch {
+            val data = aidlService?.getLatestBgData()
+            callback(data)
+        }
     }
 
     fun isConnected(): Boolean {
@@ -245,9 +249,9 @@ class XDripPlugin @Inject constructor(
     }
 }
 
-*/
 
 
+/*
 
 // 修改插件主类以适应 AAPS 的依赖注入
 
@@ -652,7 +656,7 @@ class XDripPlugin @Inject constructor(
         return stats
     }
 }
-
+*/
 
 
 
