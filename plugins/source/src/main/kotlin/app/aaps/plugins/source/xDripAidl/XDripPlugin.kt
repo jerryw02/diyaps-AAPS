@@ -21,6 +21,7 @@ import app.aaps.core.utils.resources.ResourceHelper             // ✅ 新路径
 import app.aaps.core.interfaces.rx.AapsSchedulers                    // ✅ 新路径
 
 import app.aaps.core.interfaces.sharedPreferences.SP
+import app.aaps.core.interfaces.rx.events.EventNewBG
 
 import app.aaps.core.interfaces.logging.AAPSLogger              
 import app.aaps.core.interfaces.logging.LTag                
@@ -56,7 +57,7 @@ class XDripPlugin(
                 }
                 val glucoseValue = convertToGlucoseValue(bgData)
                 CoroutineScope(Dispatchers.Main).launch {
-                    rxBus.send(EventNewGlucoseData(glucoseValue))
+                    rxBus.send(EventNewBg(glucoseValue))
                 }
             }
         }
