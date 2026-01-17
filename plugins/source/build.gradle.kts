@@ -45,7 +45,7 @@ dependencies {
     
     implementation(project(":plugins:aps"))         // ← ActivePluginProvider, etc.
 
-    implementation(project(":core:database"))
+    implementation(project(":database:impl"))
 
     // Test dependencies
     testImplementation(libs.androidx.work.testing)
