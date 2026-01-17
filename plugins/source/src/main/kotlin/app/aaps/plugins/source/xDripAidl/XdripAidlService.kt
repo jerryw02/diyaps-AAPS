@@ -1,4 +1,4 @@
-
+/*
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.ComponentName
@@ -510,9 +510,9 @@ class XdripAidlService(
         return isBound.get() && service != null
     }
 }
+*/
 
 
-/*
 package app.aaps.plugins.source.xDripAidl
 
 import android.content.ComponentName
@@ -1164,4 +1164,4 @@ class XdripAidlService(
         }
     }
 }
-*/
+
