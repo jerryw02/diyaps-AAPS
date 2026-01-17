@@ -7,7 +7,7 @@ import com.eveningoutpost.dexdrip.BgData
 
 import android.content.Context
 import app.aaps.core.data.plugin.PluginType
-import app.aaps.core.interfaces.config.Config
+//import app.aaps.core.interfaces.config.Config
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.interfaces.plugin.PluginBase
@@ -27,7 +27,7 @@ import java.util.*
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import java.util.concurrent.atomic.AtomicLong
 
-import app.aaps.core.data.plugin.PluginType
+//import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.interfaces.profile.ProfileFunction
 import app.aaps.core.interfaces.rx.bus.RxBus
 import app.aaps.core.interfaces.rx.AapsSchedulers
