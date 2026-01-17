@@ -1,9 +1,17 @@
 package app.aaps.plugins.source.xDripAidl
 
+import com.eveningoutpost.dexdrip.IBgDataCallback
+import com.eveningoutpost.dexdrip.IBgDataService
+import com.eveningoutpost.dexdrip.BgData
+
+import app.aaps.core.interfaces.Constants.TEST_TAG
+import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.plugin.PluginBase
 import app.aaps.core.interfaces.plugin.PluginDescription
-import app.aaps.core.interfaces.plugin.PluginType
+//import app.aaps.core.interfaces.plugin.PluginType
+import app.aaps.core.data.plugin.PluginType
+
 import app.aaps.core.interfaces.profile.ProfileFunction
 import app.aaps.core.interfaces.resources.ResourceHelper
 //import app.aaps.core.interfaces.rx.RxBus
