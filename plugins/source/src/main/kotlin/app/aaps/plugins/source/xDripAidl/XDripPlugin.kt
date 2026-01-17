@@ -53,7 +53,7 @@ class XDripPlugin @Inject constructor(
     private val pluginDescription: PluginDescription // 插件描述（通常在伴生对象中初始化）
 ) : PluginBase(pluginDescription, aapsLogger, rh) { // 3. 将 aapsLogger 和 rh 传递给父类
 
-    // 4. 覆盖父类属性 (关键！解决错误 2)
+    // 4. 覆盖父类属性 
     // 注意：这里必须使用 override，不能重新声明为 val/var
     override val aapsLogger: AAPSLogger = aapsLogger
     override val rh: ResourceHelper = rh
@@ -240,7 +240,7 @@ class XDripPlugin @Inject constructor(
     }
 }
 
-*/
+
 
 /*
 
