@@ -1,3 +1,4 @@
+/*
 package app.aaps.plugins.source.xDripAidl
 
 import android.os.Bundle
@@ -50,7 +51,7 @@ class XDripFragment : Fragment() {
         }
     }
 }
-
+*/
 
 /*
 package app.aaps.plugins.source.xDripAidl
