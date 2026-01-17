@@ -6,7 +6,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import app.aaps.core.ui.R // 👈 R 文件替换为新版
+//import app.aaps.core.ui.R // 👈 R 文件替换为新版
+import app.aaps.plugins.source.R
 import app.aaps.plugins.source.xDripAidl.databinding.FragmentXdripAidlBinding // 👈 自动生成的 Binding 类
 
 class XDripFragment : Fragment() {
