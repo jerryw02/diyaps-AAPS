@@ -1,3 +1,362 @@
+
+package app.aaps.plugins.source.xDripAidl
+
+import android.content.Context
+import app.aaps.core.data.plugin.PluginType
+import app.aaps.core.interfaces.logging.AAPSLogger
+import app.aaps.core.interfaces.logging.LTag
+import app.aaps.core.interfaces.plugin.PluginBase
+import app.aaps.core.interfaces.plugin.PluginDescription
+import app.aaps.core.interfaces.resources.ResourceHelper
+import app.aaps.core.interfaces.sharedPreferences.SP
+import app.aaps.core.interfaces.source.BgSource
+import app.aaps.core.interfaces.ui.UiInteraction
+import app.aaps.core.interfaces.utils.DateUtil
+import app.aaps.core.utils.receivers.DataWorkerStorage
+import app.aaps.plugins.source.AbstractBgSourceWithSensorInsertLogPlugin
+import dagger.android.HasAndroidInjector
+import javax.inject.Inject
+import javax.inject.Singleton
+import java.text.SimpleDateFormat
+import java.util.*
+
+@Singleton
+class XDripPlugin @Inject constructor(
+    injector: HasAndroidInjector,
+    aapsLogger: AAPSLogger,
+    rh: ResourceHelper,
+    private val sp: SP,
+    private val context: Context?,
+    private val dateUtil: DateUtil?,
+    private val dataWorkerStorage: DataWorkerStorage?,
+    private val uiInteraction: UiInteraction?
+) : AbstractBgSourceWithSensorInsertLogPlugin(
+    PluginDescription()
+        .mainType(PluginType.BGSOURCE)
+        .pluginName(R.string.xdrip_aidl)
+        .shortName(R.string.xdrip_aidl_short)
+        .description(R.string.xdrip_aidl_description)
+        .preferencesId(R.xml.pref_xdrip_aidl)
+        .showInList(true)
+        .visibleByDefault(true)
+        .setDefault(),
+    aapsLogger, rh, injector
+), BgSource {
+
+    companion object {
+        private const val TEST_TAG = "XDripPlugin_TEST"
+        private const val KEY_ENABLED = "xdrip_aidl_enabled"
+        private const val KEY_MAX_AGE = "xdrip_aidl_max_age"
+        private const val KEY_DEBUG_LOG = "xdrip_aidl_debug_log"
+    }
+
+    // AIDL 服务实例
+    private var aidlService: XdripAidlService? = null
+
+    // BgSource接口需要的属性
+    override var sensorBatteryLevel: Int = -1
+    private var advancedFiltering = false
+
+    // 处理统计
+    private var totalDataReceived = 0
+    private var lastProcessedTimestamp: Long = 0
+    private var lastGlucoseValue: Double = 0.0
+    private var lastProcessedTime: Long = 0L
+
+    // ========== PluginBase 接口实现 ==========
+    override fun onStart() {
+        super.onStart()
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
+
+        if (isEnabled()) {
+            initializeAidlService()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_STOP] Stopping xDrip AIDL plugin")
+        aidlService?.cleanup()
+        aidlService = null
+    }
+
+    override fun onPreferenceChange(key: String): Boolean {
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_PREF_CHANGE] Preference changed: $key")
+
+        when (key) {
+            KEY_ENABLED -> {
+                val enabled = sp.getBoolean(key, false)
+                if (enabled) {
+                    onStart()
+                } else {
+                    onStop()
+                }
+                return true
+            }
+            KEY_MAX_AGE, KEY_DEBUG_LOG -> {
+                // 处理其他设置变化
+                return true
+            }
+        }
+        return super.onPreferenceChange(key)
+    }
+
+    // ========== BgSource 接口实现 ==========
+    override fun advancedFilteringSupported(): Boolean = advancedFiltering
+
+    override fun noSensorRequired(): Boolean = true
+
+    override fun uploadOnly(): Boolean = false
+
+    override fun shouldUploadToNs(nsUpload: Boolean): Boolean {
+        return isEnabled() && super.shouldUploadToNs(nsUpload)
+    }
+
+    override fun getBgData(): List<BgSource.BgData> {
+        val data = getLatestBgData() ?: return emptyList()
+
+        return listOf(
+            BgSource.BgData(
+                value = data.glucose,
+                timestamp = data.timestamp,
+                raw = data.glucose,
+                noise = data.noise?.toString() ?: "",
+                trendArrow = convertDirectionToTrend(data.direction),
+                source = data.source ?: "xDrip+ AIDL",
+                sensorBatteryLevel = data.sensorBatteryLevel,
+                filtered = data.filtered,
+                unfiltered = data.unfiltered
+            )
+        )
+    }
+
+    override fun getStatus(): String {
+        return when (val state = getConnectionState()) {
+            is XdripAidlService.ConnectionState.Connected -> "Connected to xDrip+"
+            is XdripAidlService.ConnectionState.Disconnected -> "Disconnected from xDrip+"
+            is XdripAidlService.ConnectionState.Connecting -> "Connecting to xDrip+..."
+            is XdripAidlService.ConnectionState.Error -> "Error: ${state.message}"
+            else -> "Unknown state"
+        }
+    }
+
+    override fun getStatusShort(): String {
+        return if (isConnected()) "✓" else "✗"
+    }
+
+    // ========== 私有方法 ==========
+    private fun initializeAidlService() {
+        val ctx = context ?: run {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_INIT_ERROR] Context is null!")
+            return
+        }
+
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service")
+
+        aidlService = XdripAidlService(ctx, aapsLogger).apply {
+            addListener(object : XdripAidlService.XdripDataListener {
+                override fun onNewBgData(data: com.eveningoutpost.dexdrip.BgData) {
+                    processAidlData(data)
+                }
+
+                override fun onConnectionStateChanged(connected: Boolean) {
+                    aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_CONNECTION] AIDL connection changed: $connected")
+                }
+
+                override fun onError(error: String) {
+                    aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_ERROR] AIDL error: $error")
+                }
+            })
+
+            aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_CONNECT] Initiating AIDL connection")
+            connect()
+        }
+    }
+
+    private fun processAidlData(bgData: com.eveningoutpost.dexdrip.BgData) {
+        totalDataReceived++
+        val processId = UUID.randomUUID().toString().substring(0, 8)
+
+        aapsLogger.info(LTag.BGSOURCE,
+            "[${TEST_TAG}_DATA_${processId}] Received AIDL data: " +
+            "${bgData.glucose} mg/dL at ${formatTime(bgData.timestamp)}")
+
+        // 1. 数据验证
+        if (!validateBgData(bgData)) {
+            aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_VALIDATION_FAIL] Invalid data")
+            return
+        }
+
+        // 2. 防止重复处理
+        if (bgData.timestamp <= lastProcessedTimestamp) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_DUPLICATE] Duplicate data")
+            return
+        }
+
+        // 3. 处理数据
+        handleAidlData(bgData)
+
+        // 4. 更新状态
+        lastProcessedTimestamp = bgData.timestamp
+        lastGlucoseValue = bgData.glucose
+        lastProcessedTime = System.currentTimeMillis()
+
+        aapsLogger.info(LTag.BGSOURCE,
+            "[${TEST_TAG}_PROCESSED_${processId}] Processed xDrip AIDL data: " +
+            "${bgData.glucose} mg/dL (${bgData.direction})")
+
+        // 5. 通知UI更新
+        notifyDataReceived(bgData)
+    }
+
+    private fun validateBgData(data: com.eveningoutpost.dexdrip.BgData): Boolean {
+        if (!data.isValid()) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_VALIDATION] Invalid glucose value: ${data.glucose}")
+            return false
+        }
+
+        val dataAgeMinutes = getDataAge(data.timestamp) / 60
+        val maxAge = sp.getLong(KEY_MAX_AGE, 15)
+        if (dataAgeMinutes > maxAge) {
+            aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_VALIDATION] Data too old: ${dataAgeMinutes} minutes")
+            return false
+        }
+
+        return true
+    }
+
+    private fun handleAidlData(data: com.eveningoutpost.dexdrip.BgData) {
+        // 检测高级过滤支持
+        advancedFiltering = when (data.source?.lowercase()) {
+            "dexcom", "libre" -> true
+            else -> false
+        }
+
+        if (advancedFiltering) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_FILTERING] Advanced filtering enabled")
+        }
+
+        // 更新传感器电量
+        sensorBatteryLevel = data.sensorBatteryLevel
+
+        // 记录详细数据
+        if (sp.getBoolean(KEY_DEBUG_LOG, true)) {
+            aapsLogger.info(LTag.BGSOURCE,
+                "[${TEST_TAG}_DATA_DETAIL] BG: ${data.glucose} mg/dL, " +
+                "Direction: ${data.direction}, " +
+                "Noise: ${data.noise}, " +
+                "Battery: ${data.sensorBatteryLevel}%, " +
+                "Source: ${data.source}")
+        }
+    }
+
+    private fun notifyDataReceived(data: com.eveningoutpost.dexdrip.BgData) {
+        // 使用AAPS的事件总线通知数据更新
+        // 注意：这里需要根据AAPS实际的事件类来调整
+        uiInteraction?.runOnUiThread {
+            // 更新UI
+        }
+    }
+
+    private fun convertDirectionToTrend(direction: String?): String {
+        return when (direction?.lowercase()) {
+            "doubleup", "singleup" -> "DoubleUp"
+            "fortyfiveup" -> "SingleUp"
+            "flat" -> "Flat"
+            "fortyfivedown" -> "SingleDown"
+            "doubledown", "singledown" -> "DoubleDown"
+            else -> "NotComputable"
+        }
+    }
+
+    private fun getDataAge(timestamp: Long): Long {
+        return (System.currentTimeMillis() - timestamp) / 1000
+    }
+
+    private fun formatTime(timestamp: Long): String {
+        return SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault()).format(Date(timestamp))
+    }
+
+    // ========== 公共方法 ==========
+    override fun isEnabled(): Boolean {
+        return sp.getBoolean(KEY_ENABLED, false)
+    }
+
+    fun setEnabled(enabled: Boolean) {
+        sp.putBoolean(KEY_ENABLED, enabled)
+        if (enabled) {
+            onStart()
+        } else {
+            onStop()
+        }
+    }
+
+    fun getLatestBgData(): com.eveningoutpost.dexdrip.BgData? {
+        return aidlService?.getLatestBgDataSync()
+    }
+
+    fun isConnected(): Boolean {
+        return aidlService?.checkConnectionStatus() ?: false
+    }
+
+    fun getConnectionState(): XdripAidlService.ConnectionState? {
+        return aidlService?.connectionState?.value
+    }
+
+    fun getServiceStatistics(): Map<String, Any>? {
+        return aidlService?.getStatistics()
+    }
+
+    fun getPluginStatistics(): Map<String, Any> {
+        return mapOf(
+            "total_data_received" to totalDataReceived,
+            "last_glucose_value" to lastGlucoseValue,
+            "last_processed_timestamp" to lastProcessedTimestamp,
+            "last_processed_time" to lastProcessedTime,
+            "sensor_battery_level" to sensorBatteryLevel,
+            "advanced_filtering" to advancedFiltering,
+            "service_connected" to isConnected(),
+            "plugin_enabled" to isEnabled()
+        )
+    }
+
+    fun fetchLatestDataManually() {
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_MANUAL_FETCH] Manual data fetch requested")
+        
+        val data = getLatestBgData()
+        if (data != null) {
+            processAidlData(data)
+        } else {
+            aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_MANUAL_FETCH] No data available")
+            
+            if (!isConnected()) {
+                aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_MANUAL_FETCH_RECONNECT] Not connected, attempting reconnect")
+                aidlService?.connect()
+            }
+        }
+    }
+
+    fun diagnosePlugin(): Map<String, Any> {
+        return mapOf(
+            "plugin_class" to this::class.java.name,
+            "plugin_enabled" to isEnabled(),
+            "plugin_description" to pluginDescription.pluginName,
+            "aidl_service_created" to (aidlService != null),
+            "total_data_received" to totalDataReceived,
+            "last_processed_timestamp" to lastProcessedTimestamp,
+            "context_available" to (context != null),
+            "dateUtil_available" to (dateUtil != null),
+            "connection_state" to getConnectionState().toString()
+        )
+    }
+}
+
+// BgData扩展函数
+private fun com.eveningoutpost.dexdrip.BgData.isValid(): Boolean {
+    return this.glucose in 40..400 && this.timestamp > 0 && this.timestamp <= System.currentTimeMillis()
+}
+
+/*
 package app.aaps.plugins.source.xDripAidl
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
@@ -239,7 +598,7 @@ class XDripPlugin @Inject constructor(
         }
     }
 }
-
+*/
 
 
 /*
