@@ -36,6 +36,133 @@ import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
 import app.aaps.database.AppRepository
 import app.aaps.database.entities.GlucoseValue
 
+
+@Singleton
+class XDripPlugin @Inject constructor(
+    injector: HasAndroidInjector,
+    aapsLogger: AAPSLogger,
+    rh: ResourceHelper,
+    private val sp: SP,
+    private val context: Context
+) : AbstractBgSourceWithSensorInsertLogPlugin(
+    PluginDescription()
+        .mainType(PluginType.BGSOURCE)
+        .pluginName(R.string.xdrip_aidl)
+        .shortName(R.string.xdrip_aidl_short)
+        .description(R.string.xdrip_aidl_description)
+        .preferencesId(R.xml.pref_xdrip_aidl)
+        .showInList(true)
+        .visibleByDefault(true)
+        .setDefault(),
+    aapsLogger, rh, injector
+), BgSource {
+
+    companion object {
+        private const val TEST_TAG = "XDripPlugin_TEST"
+        private const val KEY_ENABLED = "xdrip_aidl_enabled"
+    }
+
+    // AIDL 服务实例
+    private var aidlService: XdripAidlService? = null
+
+    // BgSource接口需要的属性
+    override var sensorBatteryLevel: Int = -1
+    private var advancedFiltering = false
+
+    // ========== PluginBase 接口实现 ==========
+    override fun onStart() {
+        super.onStart()
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
+
+        if (isEnabled()) {
+            initializeAidlService()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_STOP] Stopping xDrip AIDL plugin")
+        aidlService?.cleanup()
+        aidlService = null
+    }
+
+    // ========== 核心AIDL功能 ==========
+    private fun initializeAidlService() {
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service")
+
+        aidlService = XdripAidlService(context, aapsLogger).apply {
+            addListener(object : XdripAidlService.XdripDataListener {
+                override fun onNewBgData(data: com.eveningoutpost.dexdrip.BgData) {
+                    processAidlData(data)
+                }
+
+                override fun onConnectionStateChanged(connected: Boolean) {
+                    aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_CONNECTION] AIDL connection changed: $connected")
+                }
+
+                override fun onError(error: String) {
+                    aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_ERROR] AIDL error: $error")
+                }
+            })
+
+            aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_CONNECT] Initiating AIDL connection")
+            connect()
+        }
+    }
+
+    private fun processAidlData(bgData: com.eveningoutpost.dexdrip.BgData) {
+        aapsLogger.info(LTag.BGSOURCE,
+            "[${TEST_TAG}_DATA] Received AIDL data: ${bgData.glucose} mg/dL")
+        
+        // 更新传感器电量
+        sensorBatteryLevel = bgData.sensorBatteryLevel
+        
+        // 检测高级过滤支持
+        advancedFiltering = when (bgData.source?.lowercase()) {
+            "dexcom", "libre" -> true
+            else -> false
+        }
+    }
+
+    // ========== 辅助方法 ==========
+    override fun isEnabled(): Boolean {
+        return sp.getBoolean(KEY_ENABLED, false)
+    }
+
+    fun isConnected(): Boolean {
+        return aidlService?.checkConnectionStatus() ?: false
+    }
+
+    fun getConnectionState(): XdripAidlService.ConnectionState? {
+        return aidlService?.connectionState?.value
+    }
+
+    override fun onPreferenceChange(key: String): Boolean {
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_PREF_CHANGE] Preference changed: $key")
+        
+        return when (key) {
+            KEY_ENABLED -> {
+                val enabled = sp.getBoolean(key, false)
+                if (enabled) {
+                    onStart()
+                } else {
+                    onStop()
+                }
+                true
+            }
+            else -> super.onPreferenceChange(key)
+        }
+    }
+
+    // 添加一个简单的诊断方法用于测试
+    fun testConnection(): String {
+        return "xDrip AIDL Plugin: " +
+               "Enabled=${isEnabled()}, " +
+               "Connected=${isConnected()}"
+    }
+}
+/*
+
 @Singleton
 class XDripPlugin @Inject constructor(
     injector: HasAndroidInjector,
@@ -239,6 +366,7 @@ class XDripPlugin @Inject constructor(
                "DataReceived=$totalDataReceived"
     }
 }
+*/
 
 /*
 package app.aaps.plugins.source.xDripAidl
