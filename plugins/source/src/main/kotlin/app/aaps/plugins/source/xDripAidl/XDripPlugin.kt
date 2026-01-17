@@ -15,6 +15,7 @@ import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
 import app.aaps.database.AppRepository
 import javax.inject.Inject
 
+
 // 1. 使用 @Inject 注解主构造函数
 // 2. 显式声明父类 PluginBase 所需的参数
 class XDripPlugin @Inject constructor(
