@@ -44,8 +44,8 @@ class XDripPlugin @Inject constructor(
     private val context: Context?,
     private val dateUtil: DateUtil?,
     private val dataWorkerStorage: DataWorkerStorage?,
-    private val uiInteraction: UiInteraction?,
-    private val config: Config  // 添加Config依赖
+    private val uiInteraction: UiInteraction?
+    //private val config: Config  // 添加Config依赖
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
         .mainType(PluginType.BGSOURCE)
