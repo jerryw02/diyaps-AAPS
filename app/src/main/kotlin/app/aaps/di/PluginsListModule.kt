@@ -47,6 +47,7 @@ import app.aaps.plugins.source.RandomBgPlugin
 import app.aaps.plugins.source.SyaiPlugin
 import app.aaps.plugins.source.TomatoPlugin
 import app.aaps.plugins.source.XdripSourcePlugin
+import app.aaps.plugins.source.xDripAidl.XDripPlugin
 import app.aaps.plugins.sync.garmin.GarminPlugin
 import app.aaps.plugins.sync.nsclient.NSClientPlugin
 import app.aaps.plugins.sync.nsclientV3.NSClientV3Plugin
@@ -385,6 +386,14 @@ abstract class PluginsListModule {
     @IntKey(400)
     abstract fun bindXdripSourcePlugin(plugin: XdripSourcePlugin): PluginBase
 
+    // >>> 在这里插入：注册你的 xDrip AIDL 插件 <<<
+    // 注意：这里假设你的插件类名是 XDripPlugin，且位于顶层包
+    @Binds
+    @AllConfigs
+    @IntoMap
+    @IntKey(405) // 设置优先级：放在 XdripSourcePlugin(400) 和 NSClientSourcePlugin(410) 之间
+    abstract fun bindXDripAidlPlugin(plugin: XDripPlugin): PluginBase
+    
     @Binds
     @AllConfigs
     @IntoMap
