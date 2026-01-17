@@ -12,7 +12,7 @@ import app.aaps.core.interfaces.sharedPreferences.SP
 import app.aaps.core.interfaces.ui.UiInteraction
 import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
 //import app.aaps.database.impl.AppRepository
-import app.aaps.database.AppRepository
+import app.aaps.core.database.AppRepository
 import javax.inject.Inject
 
 
