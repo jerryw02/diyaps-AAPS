@@ -1,4 +1,3 @@
-/*
 package app.aaps.plugins.source.xDripAidl
 
 import android.os.Bundle
@@ -51,7 +50,6 @@ class XDripFragment : Fragment() {
         }
     }
 }
-*/
 
 
 /*
@@ -62,7 +60,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import app.aaps.core.ui.R // 👈 R 文件替换为新版
+//import app.aaps.core.ui.R // 👈 R 文件替换为新版
+import app.aaps.plugins.source.R
 import plugins.source.src.main.res.xml.pref_xdrip_aidl
 import plugins.source.src.main.res.layout.fragment_xdrip_aidl
 
