@@ -1,3 +1,4 @@
+/*
 package app.aaps.plugins.source.xDripAidl
 
 import dagger.hilt.android.AndroidEntryPoint
@@ -16,4 +17,4 @@ object XDripModule {
         return plugin
     }
 }
-
+*/
