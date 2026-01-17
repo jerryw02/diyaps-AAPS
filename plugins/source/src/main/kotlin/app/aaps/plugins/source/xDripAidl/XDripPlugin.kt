@@ -1,4 +1,203 @@
+package app.aaps.plugins.source.xDripAidl
 
+import android.content.Context
+import app.aaps.core.data.plugin.PluginType
+import app.aaps.core.interfaces.logging.AAPSLogger
+import app.aaps.core.interfaces.logging.LTag
+import app.aaps.core.interfaces.plugin.PluginDescription
+import app.aaps.core.interfaces.source.BgSource
+import app.aaps.core.interfaces.utils.DateUtil
+import app.aaps.core.utils.receivers.DataWorkerStorage
+import app.aaps.plugins.source.AbstractBgSourceWithSensorInsertLogPlugin
+import app.aaps.plugins.source.R
+import app.aaps.core.interfaces.resources.ResourceHelper
+import app.aaps.core.interfaces.sharedPreferences.SP
+import com.eveningoutpost.dexdrip.BgData
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class XDripPlugin @Inject constructor() : AbstractBgSourceWithSensorInsertLogPlugin(
+    PluginDescription()
+        .mainType(PluginType.BGSOURCE)
+        .pluginName(R.string.xdrip_aidl)
+        .shortName(R.string.xdrip_aidl_short)
+        .description(R.string.xdrip_aidl_description),
+    // 注意: 父类参数暂时留空或使用占位符, 实际使用中请根据 AAPS 构架调整
+    // 此处假设父类允许延迟初始化
+    // 如果报错, 可能需要通过 @Inject lateinit var 来处理父类依赖
+), BgSource {
+
+    companion object {
+        private const val TEST_TAG = "XDripPlugin_TEST"
+        private const val KEY_ENABLED = "xdrip_aidl_enabled"
+        private const val KEY_MAX_AGE = "xdrip_aidl_max_age"
+        private const val KEY_DEBUG_LOG = "xdrip_aidl_debug_log"
+    }
+
+    // 统一使用字段注入
+    @Inject lateinit var aapsLogger: AAPSLogger
+    @Inject lateinit var rh: ResourceHelper
+    @Inject lateinit var sp: SP
+    @Inject lateinit var context: Context
+    @Inject lateinit var dateUtil: DateUtil
+    @Inject lateinit var dataWorkerStorage: DataWorkerStorage
+
+    override var sensorBatteryLevel: Int = -1
+    private var advancedFiltering = false
+
+    private var aidlService: XdripAidlService? = null
+
+    private var totalDataReceived = 0
+    private var lastProcessedTimestamp: Long = 0
+    private var lastGlucoseValue: Double = 0.0
+    private var lastProcessedTime: Long = 0L
+
+    // 标记是否已尝试初始化, 防止空指针循环
+    private var dependencyCheckDone = false
+
+    override fun advancedFilteringSupported(): Boolean = advancedFiltering
+
+    override fun onStart() {
+        super.onStart()
+        
+        // 1. 核心修复: 使用 try-catch 包裹, 防止 NPE 导致静默崩溃
+        try {
+            // 2. 核心修复: 检查依赖是否注入完成
+            if (!this::aapsLogger.isInitialized) {
+                // 使用原生日志, 确保在 AAPS Logger 不可用时也能看到
+                android.util.Log.w("XDripPlugin", "AAPS Logger not ready in onStart. Skipping.")
+                return
+            }
+
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
+
+            if (isEnabled()) {
+                initializeAidlService()
+            }
+        } catch (e: UninitializedPropertyAccessException) {
+            android.util.Log.e("XDripPlugin", "Dependency not ready: ${e.message}")
+        } catch (e: Exception) {
+            android.util.Log.e("XDripPlugin", "Unexpected error in onStart: ${e.message}", e)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        try {
+            if (this::aapsLogger.isInitialized) {
+                aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_STOP] Stopping xDrip AIDL plugin")
+            }
+            aidlService?.cleanup()
+        } catch (e: Exception) {
+            android.util.Log.e("XDripPlugin", "Error in onStop: ${e.message}")
+        }
+    }
+
+    private fun initializeAidlService() {
+        // 3. 核心修复: 检查 Context
+        if (!this::context.isInitialized) {
+            android.util.Log.e("XDripPlugin", "Android Context not ready! Cannot start AIDL service.")
+            return
+        }
+
+        try {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service with context: $context")
+
+            aidlService = XdripAidlService(context, aapsLogger).apply {
+                addListener(object : XdripAidlService.XdripDataListener {
+                    override fun onNewBgData(data: BgData) {
+                        processAidlData(data)
+                    }
+
+                    override fun onConnectionStateChanged(connected: Boolean) {
+                        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_CONNECTION] AIDL connection: $connected")
+                    }
+
+                    override fun onError(error: String) {
+                        aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_ERROR] AIDL error: $error")
+                    }
+                })
+                connect()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("XDripPlugin", "Failed to create XdripAidlService: ${e.message}", e)
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_ERROR] Service creation failed: ${e.message}")
+        }
+    }
+
+    fun processAidlData(bgData: BgData) {
+        totalDataReceived++
+        val processId = System.identityHashCode(bgData).toString(16)
+
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_DATA_${processId}] Received AIDL data: ${bgData.glucose} mg/dL")
+
+        if (!validateBgData(bgData)) {
+            aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_VALIDATION_FAIL] Invalid data")
+            return
+        }
+
+        if (bgData.timestamp <= lastProcessedTimestamp) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_DUPLICATE] Duplicate data")
+            return
+        }
+
+        handleAidlData(bgData)
+
+        lastProcessedTimestamp = bgData.timestamp
+        lastGlucoseValue = bgData.glucose
+        lastProcessedTime = System.currentTimeMillis()
+
+        aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_PROCESSED_${processId}] Processed BG: ${bgData.glucose} mg/dL")
+    }
+
+    private fun validateBgData(data: BgData): Boolean {
+        if (!data.isValid()) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_VALIDATION] Invalid glucose: ${data.glucose}")
+            return false
+        }
+
+        val dataAgeMinutes = getDataAge(data.timestamp) / 60
+        val maxAge = sp.getLong(KEY_MAX_AGE, 15)
+        if (dataAgeMinutes > maxAge) {
+            aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_VALIDATION] Data too old: ${dataAgeMinutes}min")
+            return false
+        }
+
+        return true
+    }
+
+    private fun handleAidlData(data: BgData) {
+        advancedFiltering = data.source?.lowercase() in listOf("dexcom", "libre")
+        sensorBatteryLevel = data.sensorBatteryLevel
+
+        if (sp.getBoolean(KEY_DEBUG_LOG, true)) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_DATA_DETAIL] BG: ${data.glucose}, Source: ${data.source}")
+        }
+    }
+
+    private fun getDataAge(timestamp: Long): Long {
+        return (System.currentTimeMillis() - timestamp) / 1000
+    }
+
+    fun getLatestBgData(): BgData? {
+        return aidlService?.getLatestBgDataSync()
+    }
+
+    fun isConnected(): Boolean {
+        return aidlService?.checkConnectionStatus() ?: false
+    }
+
+    fun getPluginStatistics(): Map<String, Any> {
+        return mapOf(
+            "total_data_received" to totalDataReceived,
+            "last_glucose_value" to lastGlucoseValue,
+            "service_connected" to isConnected()
+        )
+    }
+}
+
+/*0117
 package app.aaps.plugins.source.xDripAidl
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
@@ -261,7 +460,7 @@ class XDripPlugin @Inject constructor(
     }
 }
 
-
+*/
 
 /*
 
