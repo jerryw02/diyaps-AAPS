@@ -76,7 +76,6 @@ android {
     namespace = "app.aaps.plugins.source"
 
     compileSdk = 34
-    namespace = "app.aaps.plugins.source.xDripAidl"
 
     defaultConfig {
         minSdk = 23
@@ -107,7 +106,6 @@ android {
     }
 }
 
-
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:interfaces"))
@@ -120,7 +118,6 @@ dependencies {
     implementation(project(":shared:impl"))
 
     testImplementation(libs.androidx.work.testing)
-
     testImplementation(project(":shared:tests"))
 
     ksp(libs.com.google.dagger.compiler)
