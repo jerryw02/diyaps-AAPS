@@ -11,7 +11,8 @@ import app.aaps.core.interfaces.rx.bus.RxBus
 import app.aaps.core.interfaces.sharedPreferences.SP
 import app.aaps.core.interfaces.ui.UiInteraction
 import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
-import app.aaps.database.impl.AppRepository
+//import app.aaps.database.impl.AppRepository
+import app.aaps.database.AppRepository
 import javax.inject.Inject
 
 // 1. 使用 @Inject 注解主构造函数
