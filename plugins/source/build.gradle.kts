@@ -42,11 +42,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
     // Plugin-specific dependencies
-    
     implementation(project(":plugins:aps"))         // ← ActivePluginProvider, etc.
-
     implementation(project(":database:impl"))
-
+    implementation(project(":implementation"))
+    
     // Test dependencies
     testImplementation(libs.androidx.work.testing)
     testImplementation(project(":shared:tests"))
