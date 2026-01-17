@@ -31,9 +31,25 @@ class XdripAidlService(
     private val aapsLogger: AAPSLogger,
 ) {
 
+    /*
     companion object {
         private const val XDRIP_PACKAGE = "com.eveningoutpost.dexdrip"
         private const val SERVICE_ACTION = "com.eveningoutpost.dexdrip.BG_DATA_SERVICE"
+        private const val BIND_FLAGS = Context.BIND_AUTO_CREATE or
+                Context.BIND_IMPORTANT or
+                Context.BIND_ABOVE_CLIENT
+
+        // 测试标记
+        private const val TEST_TAG = "XDripAIDL_TEST"
+    }
+    */
+    companion object {
+        private const val XDRIP_PACKAGE = "com.eveningoutpost.dexdrip"
+    
+        // 修改：修正 Action 名称，必须与 xDrip AndroidManifest.xml 中的 <action> 标签完全一致
+        // 原值 "com.eveningoutpost.dexdrip.BG_DATA_SERVICE" 是错误的
+        private const val SERVICE_ACTION = "com.eveningoutpost.dexdrip.BgDataService"
+    
         private const val BIND_FLAGS = Context.BIND_AUTO_CREATE or
                 Context.BIND_IMPORTANT or
                 Context.BIND_ABOVE_CLIENT
@@ -245,6 +261,7 @@ class XdripAidlService(
         dataStatistics["total_listeners_removed"] = (dataStatistics["total_listeners_removed"] as? Int ?: 0) + 1
     }
 
+    /*
     fun connect() {
         if (isBound.get() || isConnecting.get()) {
             aapsLogger.debug(LTag.XDRIP,
@@ -272,6 +289,46 @@ class XdripAidlService(
                     "Package: $XDRIP_PACKAGE, " +
                     "Intent: $intent")
 
+        try {
+            val connectStart = System.currentTimeMillis()
+            aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_BIND_SERVICE] Calling bindService()")
+            val result = context.bindService(intent, serviceConnection, BIND_FLAGS)
+            val bindTime = System.currentTimeMillis() - connectStart
+
+            aapsLogger.debug(LTag.XDRIP,
+                "[${TEST_TAG}_BIND_RESULT] bindService() completed in ${bindTime}ms, result: $result")
+        */
+
+
+    fun connect() {
+        if (isBound.get() || isConnecting.get()) {
+            aapsLogger.debug(LTag.XDRIP,
+                "[${TEST_TAG}_CONNECT_SKIP] Already connected or connecting. " +
+                        "isBound: ${isBound.get()}, isConnecting: ${isConnecting.get()}")
+            return
+        }
+
+        aapsLogger.info(LTag.XDRIP,
+            "[${TEST_TAG}_CONNECT_START] Initiating connection to xDrip BG data service")
+        isConnecting.set(true)
+        _connectionState.value = ConnectionState.Connecting
+
+        dataStatistics["connect_attempts"] = (dataStatistics["connect_attempts"] as? Int ?: 0) + 1
+        dataStatistics["last_connect_attempt"] = System.currentTimeMillis()
+
+        // Intent 构建（修正 Action 后，隐式 Intent 应该可以正常工作）
+        val intent = Intent().apply {
+            action = SERVICE_ACTION // 现在值为 "com.eveningoutpost.dexdrip.BgDataService"
+            `package` = XDRIP_PACKAGE
+        }    
+
+        aapsLogger.debug(LTag.XDRIP,
+            "[${TEST_TAG}_CONNECT_INTENT] Intent details - " +
+                    "Action: $SERVICE_ACTION, " +
+                    "Package: $XDRIP_PACKAGE, " +
+                    "Intent: $intent")
+    
+        // ... (后续 bindService 逻辑保持不变，无需修改)
         try {
             val connectStart = System.currentTimeMillis()
             aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_BIND_SERVICE] Calling bindService()")
