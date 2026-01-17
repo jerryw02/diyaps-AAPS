@@ -4,12 +4,12 @@ import com.eveningoutpost.dexdrip.IBgDataCallback
 import com.eveningoutpost.dexdrip.IBgDataService
 import com.eveningoutpost.dexdrip.BgData
 
-import app.aaps.core.interfaces.Constants.TEST_TAG
+//import app.aaps.core.interfaces.Constants.TEST_TAG
 import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.plugin.PluginBase
-import app.aaps.core.interfaces.plugin.DataSourcePlugin
-import app.aaps.core.interfaces.plugin.RawDisplayData
+//import app.aaps.core.interfaces.plugin.DataSourcePlugin
+//import app.aaps.core.interfaces.plugin.RawDisplayData
 import app.aaps.core.interfaces.plugin.PluginDescription
 //import app.aaps.core.interfaces.plugin.PluginType
 import app.aaps.core.data.plugin.PluginType
@@ -26,8 +26,8 @@ import app.aaps.core.interfaces.utils.fabric.FabricPrivacy
 import app.aaps.database.AppRepository
 import app.aaps.database.entities.GlucoseValue
 
-import app.aaps.core.interfaces.events.Event
-import app.aaps.core.interfaces.events.EventNewHistoryData
+//import app.aaps.core.interfaces.events.Event
+//import app.aaps.core.interfaces.events.EventNewHistoryData
 
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import java.text.SimpleDateFormat
