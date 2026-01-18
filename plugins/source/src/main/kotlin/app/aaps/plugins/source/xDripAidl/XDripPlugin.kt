@@ -41,7 +41,9 @@ class XDripPlugin @Inject constructor(
         .mainType(PluginType.BGSOURCE)
         .pluginName(R.string.xdrip_aidl)  
         .shortName(R.string.xdrip_aidl_short)
-        .description(R.string.xdrip_aidl_description),
+        .description(R.string.xdrip_aidl_description)
+    // 确保这里指定了配置文件，否则设置里的开关不会自动关联
+    .preferencesId(R.xml.pref_xdrip_aidl), // <-- 这一行很重要
     aapsLogger, rh
 ), BgSource {
 
