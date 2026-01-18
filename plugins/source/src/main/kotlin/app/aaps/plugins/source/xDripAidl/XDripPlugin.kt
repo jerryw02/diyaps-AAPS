@@ -87,8 +87,8 @@ class XDripPlugin @Inject constructor(
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
 
         // 只有当插件逻辑上是“开启”状态时，才连接服务
-        // 使用 isFragmentEnabled 来做最终判断 
-        if (isEnabled() && isFragmentEnabled(PluginType.BGSOURCE)) {
+        // 只要插件被启用，就初始化服务
+        if (isEnabled()) {
             aapsLogger.debug(LTag.BGSOURCE, "Plugin is enabled, initializing AIDL service. AAPS 启动或配置更新，尝试连接 xDrip 服务")
             initializeAidlService()
         } else {
@@ -261,6 +261,7 @@ class XDripPlugin @Inject constructor(
      * 修正：检查插件片段是否启用
      * AAPS 会调用此方法来决定是否使用此数据源的数据
      */
+    /*
     override fun isFragmentEnabled(type: PluginType): Boolean {
         // 必须同时满足：1.插件已启用 2.配置开关已打开
         val enabledInPrefs = sp.getBoolean(R.string.key_xdrip_aidl_enabled, false)
@@ -269,6 +270,7 @@ class XDripPlugin @Inject constructor(
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_STATUS] isFragmentEnabled: $isEnabled")
         return isEnabled
     }
+    */
 
     /**
      * 当用户在插件列表点击勾选/取消勾选时触发 
@@ -282,6 +284,8 @@ class XDripPlugin @Inject constructor(
         if (isEnabled()) {
             // 注意：这里不直接 connect()，而是依赖 onStart() 触发
             // 因为 onStart() 是 AAPS 框架在启用后必然会调用的标准生命周期
+            // 连接逻辑统一交给 onStart 处理，这是 AAPS 的标准做法
+            // onStart 会在 setPluginEnabled 之后自动被框架调用
             aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_ENABLE] xDripAidl 插件已启用，Scheduling connection via onStart")
         } else {
             // 如果是禁用状态，立即断开
