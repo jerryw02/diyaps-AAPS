@@ -261,7 +261,7 @@ class XDripPlugin @Inject constructor(
      * 修正：检查插件片段是否启用
      * AAPS 会调用此方法来决定是否使用此数据源的数据
      */
-    override fun isFragmentEnabled(type: Int): Boolean {
+    override fun isFragmentEnabled(type: PluginType): Boolean {
         // 必须同时满足：1.插件已启用 2.配置开关已打开
         val enabledInPrefs = sp.getBoolean(R.string.key_xdrip_aidl_enabled, false)
         val isEnabled = super.isFragmentEnabled(type) && enabledInPrefs
