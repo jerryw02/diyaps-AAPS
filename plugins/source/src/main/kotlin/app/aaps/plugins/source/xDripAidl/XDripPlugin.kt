@@ -38,7 +38,7 @@ class XDripPlugin @Inject constructor(
     private val sp: SP  // 改为构造函数参数
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
-        .mainType(MainType.SOURCE) // 数据源类型
+        .mainType(PluginType.BGSOURCE) // 数据源类型
         .pluginName(R.string.xdrip_aidl) // 插件显示名称
         .shortName(R.string.xdrip_aidl_short)
         .description(R.string.xdrip_aidl_description) 
