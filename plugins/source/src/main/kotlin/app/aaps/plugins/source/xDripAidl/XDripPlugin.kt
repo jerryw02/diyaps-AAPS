@@ -38,12 +38,14 @@ class XDripPlugin @Inject constructor(
     private val sp: SP  // 改为构造函数参数
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
-        .mainType(PluginType.BGSOURCE)
-        .pluginName(R.string.xdrip_aidl)  
+        .mainType(MainType.SOURCE) // 数据源类型
+        .pluginName(R.string.xdrip_aidl) // 插件显示名称
         .shortName(R.string.xdrip_aidl_short)
-        .description(R.string.xdrip_aidl_description)
-    // 确保这里指定了配置文件，否则设置里的开关不会自动关联
-    .preferencesId(R.xml.pref_xdrip_aidl), // <-- 这一行很重要
+        .description(R.string.xdrip_aidl_description) 
+        // 确保这里指定了配置文件，否则设置里的开关不会自动关联
+        .preferencesId(R.xml.pref_xdrip_aidl) // 关键点：指向你的 XML 配置文件
+        .alwaysEnabled(false), // 必须为 false，才能响应设置里的开关
+    
     aapsLogger, rh
 ), BgSource {
 
