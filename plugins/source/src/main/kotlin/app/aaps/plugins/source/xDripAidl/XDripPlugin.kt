@@ -89,7 +89,7 @@ class XDripPlugin @Inject constructor(
         // 只有当插件逻辑上是“开启”状态时，才连接服务
         // 使用 isFragmentEnabled 来做最终判断 
         if (isEnabled() && isFragmentEnabled(PluginType.BGSOURCE)) {
-            aapsLogger.debug(LTag.PLUGIN, "Plugin is enabled, initializing AIDL service. AAPS 启动或配置更新，尝试连接 xDrip 服务")
+            aapsLogger.debug(LTag.BGSOURCE, "Plugin is enabled, initializing AIDL service. AAPS 启动或配置更新，尝试连接 xDrip 服务")
             initializeAidlService()
         } else {
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Plugin not fully enabled, skipping initialization")
