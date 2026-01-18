@@ -87,9 +87,12 @@ class XDripPlugin @Inject constructor(
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
 
         // 只有当插件逻辑上是“开启”状态时，才连接服务
-        if (isEnabled() && isFragmentEnabled(MainType.SOURCE)) {
-            aapsLogger.debug(LTag.PLUGIN, "AAPS 启动或配置更新，尝试连接 xDrip 服务")
+        // 使用 isFragmentEnabled 来做最终判断 
+        if (isEnabled() && isFragmentEnabled(PluginType.BGSOURCE)) {
+            aapsLogger.debug(LTag.PLUGIN, "Plugin is enabled, initializing AIDL service. AAPS 启动或配置更新，尝试连接 xDrip 服务")
             initializeAidlService()
+        } else {
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Plugin not fully enabled, skipping initialization")
         }
     }
 
@@ -253,37 +256,40 @@ class XDripPlugin @Inject constructor(
         )
     }
 
-    
+
     /**
-     * AAPS 核心询问：数据源是否已启用？
-     * 必须同时检查：1. 插件在列表中被勾选 2. 配置里的开关被打开
+     * 修正：检查插件片段是否启用
+     * AAPS 会调用此方法来决定是否使用此数据源的数据
      */
     override fun isFragmentEnabled(type: Int): Boolean {
-        // isEnabled() 检查是否在插件列表里被勾选
-        // sp.getBoolean 检查配置 XML 里的开关是否打开
-        return type == MainType.SOURCE
-                && isEnabled()
-                && sp.getBoolean(R.string.key_xdrip_aidl_enabled, false)
+        // 必须同时满足：1.插件已启用 2.配置开关已打开
+        val enabledInPrefs = sp.getBoolean(R.string.key_xdrip_aidl_enabled, false)
+        val isEnabled = super.isFragmentEnabled(type) && enabledInPrefs
+    
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_STATUS] isFragmentEnabled: $isEnabled")
+        return isEnabled
     }
 
     /**
-     * 当用户在插件列表点击勾选/取消勾选时触发
+     * 当用户在插件列表点击勾选/取消勾选时触发 
+     * 修正：符合 AbstractBgSource 插件规范的启用方法
      */
-    override fun setPluginEnabled(enabled: Boolean) {
-        super.setPluginEnabled(enabled)
-        // 关键：根据开关状态，控制服务连接
-        if (enabled) {
-            // 插件被启用，尝试连接
-            // 注意：这里不直接 connect() 也可以，因为 onStart 会被调用
-            // 但为了响应更迅速，建议直接调用
-             aapsLogger.debug(LTag.PLUGIN, "xDrip 插件已启用")
+     override fun setPluginEnabled(type: PluginType, newState: Boolean) {
+        super.setPluginEnabled(type, newState)
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_ENABLE] Plugin enabled state changed to: $newState")
+    
+        // 如果是启用状态，尝试连接服务
+        if (isEnabled()) {
+            // 注意：这里不直接 connect()，而是依赖 onStart() 触发
+            // 因为 onStart() 是 AAPS 框架在启用后必然会调用的标准生命周期
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_ENABLE] xDripAidl 插件已启用，Scheduling connection via onStart")
         } else {
-            // 插件被禁用，必须断开
-            xdripAidlService.disconnect()
-            aapsLogger.debug(LTag.PLUGIN, "xDrip 插件已禁用，服务已断开")
+            // 如果是禁用状态，立即断开
+            aidlService?.disconnect()
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_ENABLE] xDripAidl 插件已禁用，服务已断开")
         }
     }
-    
+
     // 手动获取数据
     fun fetchLatestDataManually() {
         aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_MANUAL_FETCH] Manual data fetch requested")
