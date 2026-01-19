@@ -19,6 +19,11 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
+    <!-- 在 AAPS 的 AndroidManifest.xml 中 -->
+    <uses-permission android:name="com.eveningoutpost.dexdrip.permission.BIND_BG_DATA_SERVICE" />
+    <!-- 或使用标准权限 -->
+    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
+
     <uses-permission-sdk-23 android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- To receive data from xdrip. -->
