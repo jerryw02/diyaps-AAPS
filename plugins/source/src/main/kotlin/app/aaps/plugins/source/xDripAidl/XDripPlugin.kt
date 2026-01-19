@@ -204,6 +204,103 @@ class XDripPlugin @Inject constructor(
                 "Battery: ${data.sensorBatteryLevel}%, " +
                 "Source: ${data.source}")
         }
+    // === 关键修改：将数据传递给 AAPS 核心系统 ===
+    processAndNotifyBgData(data)
+}
+
+/**
+ * 处理并通知血糖数据到 AAPS 系统
+ */
+private fun processAndNotifyBgData(bgData: com.eveningoutpost.dexdrip.BgData) {
+    val context = context ?: return
+    val dateUtil = dateUtil ?: return
+    
+    // 1. 创建 AAPS 内部的 GlucoseValue 对象
+    val glucoseValue = createGlucoseValue(bgData)
+    
+    // 2. 保存到数据库
+    saveToDatabase(glucoseValue)
+    
+    // 3. 通知系统有新数据
+    notifyNewData(glucoseValue)
+    
+    // 4. 更新插件状态
+    updatePluginState(bgData)
+}
+
+/**
+ * 创建 AAPS 内部的 GlucoseValue 对象
+ */
+private fun createGlucoseValue(bgData: com.eveningoutpost.dexdrip.BgData): app.aaps.core.interfaces.GlucoseValue {
+    return object : app.aaps.core.interfaces.GlucoseValue {
+        override fun getValue(): Double = bgData.glucose
+        override fun getValueMgdl(): Double = bgData.glucose
+        override fun getTimestamp(): Long = bgData.timestamp
+        override fun getSourceSensor(): app.aaps.core.interfaces.GlucoseValue.SourceSensor = 
+            app.aaps.core.interfaces.GlucoseValue.SourceSensor.UNKNOWN
+        override fun getTrendArrow(): app.aaps.core.interfaces.GlucoseUnit.TrendArrow? {
+            return when (bgData.direction?.lowercase()) {
+                "doubleup" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.DOUBLE_UP
+                "singleup" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.SINGLE_UP
+                "fortyfiveup" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.FORTY_FIVE_UP
+                "flat" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.FLAT
+                "fortyfivedown" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.FORTY_FIVE_DOWN
+                "singledown" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.SINGLE_DOWN
+                "doubledown" -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.DOUBLE_DOWN
+                else -> app.aaps.core.interfaces.GlucoseUnit.TrendArrow.NONE
+            }
+        }
+        override fun getSensorId(): String? = bgData.source
+        override fun getSensorBatteryLevel(): Int? = bgData.sensorBatteryLevel
+    }
+}
+
+/**
+ * 保存数据到数据库
+ */
+private fun saveToDatabase(glucoseValue: app.aaps.core.interfaces.GlucoseValue) {
+    try {
+        // 使用 DataWorkerStorage 保存数据
+        dataWorkerStorage?.storeData(
+            glucoseValue,
+            app.aaps.core.interfaces.DataWorker.DataType.BG
+        )
+        
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_DB_SAVE] Data saved to database")
+    } catch (e: Exception) {
+        aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_DB_ERROR] Failed to save data", e)
+    }
+}
+
+/**
+ * 通知系统有新数据
+ */
+private fun notifyNewData(glucoseValue: app.aaps.core.interfaces.GlucoseValue) {
+    // 发送广播通知数据更新
+    val intent = android.content.Intent(app.aaps.core.interfaces.Constants.ACTION_NEW_BG_ESTIMATE)
+    intent.putExtra("timestamp", glucoseValue.timestamp)
+    intent.putExtra("bg", glucoseValue.value)
+    intent.putExtra("trend", glucoseValue.trendArrow?.name)
+    
+    context?.sendBroadcast(intent)
+    
+    aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_NOTIFY] Sent broadcast for new BG data")
+    
+    // 也可以使用 EventBus
+    // EventBus.getDefault().post(NewBgDataEvent(glucoseValue))
+}
+
+/**
+ * 更新插件状态
+ */
+private fun updatePluginState(bgData: com.eveningoutpost.dexdrip.BgData) {
+    // 更新最后处理的数据
+    lastGlucoseValue = bgData.glucose
+    lastProcessedTimestamp = bgData.timestamp
+    
+    // 通知 UI 更新
+    notifyPluginChanged()
+}
     }
 
     private fun detectAdvancedFiltering(bgData: com.eveningoutpost.dexdrip.BgData) {
