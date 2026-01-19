@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 
 import android.content.Context
-import android.os.Bundle  // 新增：用于创建 Bundle 数据包
+import android.os.Bundle  // 保留，可能用于其他用途
 import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
@@ -32,11 +32,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 // ========== 新增导入 ==========
-import androidx.work.WorkManager  // 用于启动 Worker
-import androidx.work.OneTimeWorkRequest  // 用于创建工作请求
-import androidx.work.workDataOf  // 用于创建工作数据
 import app.aaps.core.interfaces.receivers.Intents  // 用于 Intent 常量
-import app.aaps.plugins.source.XdripSourcePlugin  // 导入现有的 xDrip 插件 Worker
 // =============================
 
 @Singleton
@@ -74,9 +70,6 @@ class XDripPlugin @Inject constructor(
     @set:Inject
     var dataWorkerStorage: DataWorkerStorage? = null
 
-    // ========== 新增：WorkManager 实例 ==========
-    private var workManager: WorkManager? = null
-    
     // 使用自己的 CoroutineScope
     private val scope = CoroutineScope(Dispatchers.Main)
     
@@ -97,11 +90,6 @@ class XDripPlugin @Inject constructor(
     override fun onStart() {
         super.onStart()
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
-
-        // 初始化 WorkManager
-        context?.let {
-            workManager = WorkManager.getInstance(it)
-        }
 
         // 只有当插件逻辑上是"开启"状态时，才连接服务
         // 只要插件被启用，就初始化服务
@@ -167,7 +155,7 @@ class XDripPlugin @Inject constructor(
         }
 
         // 3. 处理数据 - 修改：调用新的处理方法
-        handleAndForwardData(bgData)  // 修改：原为 handleAidlData(bgData)
+        handleAndForwardData(bgData)
 
         // 4. 更新状态
         lastProcessedTimestamp = bgData.timestamp
@@ -205,94 +193,84 @@ class XDripPlugin @Inject constructor(
 
     // ========== 新增方法：将数据转发到 AAPS 系统 ==========
     /**
-     * 将 AIDL 数据转换为现有 xDrip 插件能处理的格式
-     * 原因：AAPS 已经有成熟的 xDrip 数据处理流程，我们复用这个流程
+     * 将 AIDL 数据发送给现有的 xDripSourcePlugin
+     * 原因：通过发送广播，让现有的 xDripSourcePlugin 处理数据
      */
     private fun forwardToAapsSystem(bgData: com.eveningoutpost.dexdrip.BgData) {
-        val storage = dataWorkerStorage ?: return
         val ctx = context ?: return
         
         try {
-            // 1. 创建 Bundle，格式与现有 xDrip 插件兼容
-            val bundle = createXdripCompatibleBundle(bgData)
-            
-            // 2. 存储 Bundle 到 DataWorkerStorage
-            val storeId = storage.store(bundle)
+            // 发送与现有 xDrip 插件兼容的广播
+            sendXdripCompatibleBroadcast(bgData)
             
             aapsLogger.debug(LTag.BGSOURCE,
-                "[${TEST_TAG}_FORWARD] Bundle created and stored, ID: $storeId")
-            
-            // 3. 触发现有的 xDrip Worker 处理数据
-            triggerXdripWorker(storeId)
-            
+                "[${TEST_TAG}_FORWARD] Data forwarded via broadcast")
+                
         } catch (e: Exception) {
             aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_FORWARD_ERROR] Failed to forward data", e)
         }
     }
 
-    // ========== 新增方法：创建兼容的 Bundle ==========
+    // ========== 新增方法：发送兼容的广播 ==========
     /**
-     * 创建与现有 xDripSourcePlugin 兼容的 Bundle
-     * 原因：确保数据格式与系统期望的完全一致
+     * 发送与现有 xDripSourcePlugin 兼容的广播
+     * 原因：现有的 xDripSourcePlugin 已经监听了这些广播，可以直接处理
      */
-    private fun createXdripCompatibleBundle(bgData: com.eveningoutpost.dexdrip.BgData): Bundle {
-        return Bundle().apply {
-            // 必需字段（与 Intents 常量匹配）
-            putLong(Intents.EXTRA_TIMESTAMP, bgData.timestamp)
-            putDouble(Intents.EXTRA_BG_ESTIMATE, bgData.glucose)
-            putString(Intents.EXTRA_BG_SLOPE_NAME, bgData.direction ?: "Flat")
-            putInt(Intents.EXTRA_SENSOR_BATTERY, bgData.sensorBatteryLevel)
-            putString(Intents.XDRIP_DATA_SOURCE, bgData.source ?: "xDrip_AIDL")
-            
-            // 可选字段，如果有则添加
-            bgData.noise?.takeIf { it.isNotEmpty() }?.let {
-                putString("noise", it)
-            }
-            
-            // 如果 trend 字段有数值，可以转换为 slope
-            if (bgData.trend != 0.0) {
-                putDouble(Intents.EXTRA_BG_SLOPE, bgData.trend)
-            }
-            
-            // 过滤数据
-            if (bgData.filtered > 0) {
-                putDouble(Intents.EXTRA_RAW, bgData.filtered)
-            }
-            
-            aapsLogger.debug(LTag.BGSOURCE,
-                "[${TEST_TAG}_BUNDLE] Created bundle: " +
-                "timestamp=${bgData.timestamp}, " +
-                "bg=${bgData.glucose}, " +
-                "direction=${bgData.direction}")
-        }
-    }
-
-    // ========== 新增方法：触发 Worker 处理 ==========
-    /**
-     * 触发现有的 XdripSourceWorker 处理数据
-     * 原因：复用 AAPS 已有的数据处理逻辑，确保数据正确保存到数据库
-     */
-    private fun triggerXdripWorker(storeId: Long) {
-        val wm = workManager ?: return
+    private fun sendXdripCompatibleBroadcast(bgData: com.eveningoutpost.dexdrip.BgData) {
+        val ctx = context ?: return
         
         try {
-            // 创建与现有 xDrip 插件相同的工作请求
-            val workRequest = OneTimeWorkRequest.Builder(
-                XdripSourcePlugin.XdripSourceWorker::class.java
-            ).setInputData(
-                workDataOf(
-                    DataWorkerStorage.STORE_KEY to storeId
-                )
-            ).build()
+            // 创建 Intent，格式与 xDrip 广播完全相同
+            val intent = android.content.Intent(Intents.ACTION_NEW_BG_ESTIMATE).apply {
+                // 必需字段（与现有 xDrip 插件期望的完全一致）
+                putExtra(Intents.EXTRA_TIMESTAMP, bgData.timestamp)
+                putExtra(Intents.EXTRA_BG_ESTIMATE, bgData.glucose)
+                putExtra(Intents.EXTRA_BG_SLOPE_NAME, bgData.direction ?: "Flat")
+                putExtra(Intents.EXTRA_SENSOR_BATTERY, bgData.sensorBatteryLevel)
+                putExtra(Intents.XDRIP_DATA_SOURCE, bgData.source ?: "xDrip_AIDL")
+                
+                // 可选字段，如果有则添加
+                if (bgData.noise != null && bgData.noise.isNotEmpty()) {
+                    putExtra("noise", bgData.noise)
+                }
+                
+                // 趋势值（如果可用）
+                if (bgData.trend != 0.0) {
+                    putExtra(Intents.EXTRA_BG_SLOPE, bgData.trend)
+                }
+                
+                // 原始/过滤数据
+                if (bgData.filtered > 0) {
+                    putExtra(Intents.EXTRA_RAW, bgData.filtered)
+                }
+                
+                if (bgData.unfiltered > 0) {
+                    putExtra("unfiltered", bgData.unfiltered)
+                }
+                
+                // 序列号（存储在 rawData 中）
+                if (bgData.rawData != null && bgData.rawData.isNotEmpty()) {
+                    try {
+                        val seq = bgData.rawData.toLong()
+                        putExtra("sequence", seq)
+                    } catch (e: NumberFormatException) {
+                        // 忽略
+                    }
+                }
+            }
             
-            // 提交工作
-            wm.enqueue(workRequest)
+            // 发送广播
+            ctx.sendBroadcast(intent)
             
             aapsLogger.debug(LTag.BGSOURCE,
-                "[${TEST_TAG}_WORKER] Worker enqueued for storeId: $storeId")
+                "[${TEST_TAG}_BROADCAST] Sent broadcast: " +
+                "timestamp=${bgData.timestamp}, " +
+                "bg=${bgData.glucose}, " +
+                "direction=${bgData.direction}, " +
+                "source=${bgData.source}")
                 
         } catch (e: Exception) {
-            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_WORKER_ERROR] Failed to enqueue worker", e)
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_BROADCAST_ERROR]", e)
         }
     }
 
@@ -322,9 +300,6 @@ class XDripPlugin @Inject constructor(
 
         return true
     }
-
-    // ========== 修改：移除原有的 handleAidlData 方法 ==========
-    // 原方法已替换为 handleAndForwardData
 
     private fun detectAdvancedFiltering(bgData: com.eveningoutpost.dexdrip.BgData) {
         // 根据数据源判断是否支持高级过滤
