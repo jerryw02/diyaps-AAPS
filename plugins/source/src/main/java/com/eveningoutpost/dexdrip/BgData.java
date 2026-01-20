@@ -82,4 +82,47 @@ public class BgData implements Parcelable {
         return noise != null && (noise.toLowerCase().contains("high") || 
                                  noise.toLowerCase().contains("medium"));
     }
+
+    // 在 Getter 方法后面添加 Setter 方法：
+    // Getter 方法
+    public double getGlucose() { return glucose; }
+    public long getTimestamp() { return timestamp; }
+    public String getDirection() { return direction; }
+    public String getSource() { return source; }
+    public String getRawData() { return rawData; }
+
+    // 添加 Setter 方法（为了兼容现有代码）
+    public void setGlucose(double glucose) { this.glucose = glucose; }
+    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+    public void setDirection(String direction) { this.direction = direction; }
+    public void setSource(String source) { this.source = source; }
+    public void setRawData(String rawData) { this.rawData = rawData; }
+
+    // 为了兼容原有调用，可以添加这些方法
+    public double getGlucoseValue() { return glucose; }
+    public void setGlucoseValue(double glucoseValue) { this.glucose = glucoseValue; } // 添加这个
+
+    public int getTrend() { return (int)trend; }
+    public void setTrend(int trend) { this.trend = trend; } // 添加这个
+
+    public long getSequenceNumber() { 
+        try {
+            return Long.parseLong(rawData);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+    public void setSequenceNumber(long sequenceNumber) { // 添加这个
+        this.rawData = String.valueOf(sequenceNumber);
+    }
+
+    public boolean isReliable() { return true; } // 兼容方法
+    public void setReliable(boolean reliable) { /* 忽略 */ } // 添加这个   
+    
+    @Override
+    public String toString() {
+        return String.format("BgData{glucose=%.1f, time=%d, direction=%s, source=%s}", 
+            glucose, timestamp, direction, source);
+    }
+    
 }
