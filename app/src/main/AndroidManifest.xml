@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ========== 基础权限 ========== -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
@@ -19,17 +20,21 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
-    <!-- 在 AAPS 的 AndroidManifest.xml 中 -->
+    <!-- ========== xDrip AIDL 绑定权限 ========== -->
+    <!-- 如果 xDrip 使用了自定义权限 -->
     <uses-permission android:name="com.eveningoutpost.dexdrip.permission.BIND_BG_DATA_SERVICE" />
+    <!-- 标准绑定服务权限 -->
     <uses-permission android:name="android.permission.BIND_JOB_SERVICE" />
-    <!-- 或使用标准权限 -->
+    <uses-permission android:name="android.permission.BIND_AUTO_CREATE" />
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
+    <uses-permission android:name="android.permission.BIND_TREATMENT_SERVICE" />
 
+    <!-- Android 6.0+ 权限 -->
     <uses-permission-sdk-23 android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
+    <!-- ========== 接收数据权限 ========== -->
     <!-- To receive data from xdrip. -->
     <uses-permission android:name="com.eveningoutpost.dexdrip.permissions.RECEIVE_BG_ESTIMATE" />
-
     <!-- To receive data from Aidex -->
     <uses-permission android:name="com.microtechmd.cgms.aidex.permissions.RECEIVE_BG_ESTIMATE" />
 
@@ -77,6 +82,7 @@
             android:name="app.aaps.activities.HistoryBrowseActivity"
             android:exported="false"
             android:theme="@style/AppTheme" />
+        
         <!-- Receive new BG readings from other local apps -->
         <receiver
             android:name="app.aaps.receivers.DataReceiver"
@@ -85,6 +91,9 @@
             <intent-filter>
                 <!-- Receiver from xDrip -->
                 <action android:name="com.eveningoutpost.dexdrip.BgEstimate" />
+                <!-- 添加 AIDL 可能使用的广播 -->
+                <action android:name="com.eveningoutpost.dexdrip.BgDataService" />
+                <action android:name="com.eveningoutpost.dexdrip.AIDL_BG_DATA" />
                 <!-- Receiver from 640g uploader -->
                 <action android:name="com.eveningoutpost.dexdrip.NS_EMULATOR" />
                 <!-- Receiver from glimp -->
