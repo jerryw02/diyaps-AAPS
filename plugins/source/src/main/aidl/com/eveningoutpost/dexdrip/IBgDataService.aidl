@@ -18,4 +18,6 @@ interface IBgDataService {
      * 注销回调
      */
     void unregisterCallback(IBgDataCallback callback);
+
+    void sendHeartbeat();  // 新增方法，用于手动触发心跳
 }
