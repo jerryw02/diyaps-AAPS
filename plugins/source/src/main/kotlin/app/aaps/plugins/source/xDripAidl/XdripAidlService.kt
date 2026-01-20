@@ -132,6 +132,12 @@ class XdripAidlService(
 
             aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_CALLBACK_COMPLETE] Callback processing completed successfully")
         }
+        override fun onHeartbeat(timestamp: Long) {
+            // 处理心跳（只更新连接状态，不处理数据）
+            logger.debug("[XDripAIDL_HEARTBEAT] Heartbeat received: $timestamp")
+            lastHeartbeatTime = timestamp
+            updateConnectionStatus(true)
+        }        
     }
 
     private val serviceConnection = object : ServiceConnection {
