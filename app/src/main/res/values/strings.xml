@@ -34,4 +34,12 @@
     <string name="select">Select</string>
     <string name="set">Set</string>
 
+    <!-- Battery Optimization Strings -->
+    <string name="battery_permission_warning">电池优化警告</string>
+    <string name="aaps_needs_whitelisting_for_proper_performance">AAPS 需要被加入电池优化白名单以保证正常运行。</string>
+    <string name="please_allow_permission">请允许 AAPS 忽略电池优化。</string>
+    <string name="go_to_settings">去设置</string>
+    <string name="later">稍后</string>
+    <string name="battery_permission_granted_thanks">感谢授权</string> 
+
 </resources>
