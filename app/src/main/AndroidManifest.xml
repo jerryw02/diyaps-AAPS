@@ -21,6 +21,7 @@
 
     <!-- 在 AAPS 的 AndroidManifest.xml 中 -->
     <uses-permission android:name="com.eveningoutpost.dexdrip.permission.BIND_BG_DATA_SERVICE" />
+    <uses-permission android:name="android.permission.BIND_JOB_SERVICE" />
     <!-- 或使用标准权限 -->
     <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
 
