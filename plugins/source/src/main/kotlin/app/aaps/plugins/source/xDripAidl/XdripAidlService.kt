@@ -31,25 +31,9 @@ class XdripAidlService(
     private val aapsLogger: AAPSLogger,
 ) {
 
-    /*
     companion object {
         private const val XDRIP_PACKAGE = "com.eveningoutpost.dexdrip"
-        private const val SERVICE_ACTION = "com.eveningoutpost.dexdrip.BG_DATA_SERVICE"
-        private const val BIND_FLAGS = Context.BIND_AUTO_CREATE or
-                Context.BIND_IMPORTANT or
-                Context.BIND_ABOVE_CLIENT
-
-        // 测试标记
-        private const val TEST_TAG = "XDripAIDL_TEST"
-    }
-    */
-    companion object {
-        private const val XDRIP_PACKAGE = "com.eveningoutpost.dexdrip"
-    
-        // 修改：修正 Action 名称，必须与 xDrip AndroidManifest.xml 中的 <action> 标签完全一致
-        // 原值 "com.eveningoutpost.dexdrip.BG_DATA_SERVICE" 是错误的
         private const val SERVICE_ACTION = "com.eveningoutpost.dexdrip.BgDataService"
-    
         private const val BIND_FLAGS = Context.BIND_AUTO_CREATE or
                 Context.BIND_IMPORTANT or
                 Context.BIND_ABOVE_CLIENT
@@ -57,6 +41,15 @@ class XdripAidlService(
         // 测试标记
         private const val TEST_TAG = "XDripAIDL_TEST"
     }
+
+    // ========== 新增：心跳相关字段 ==========
+    private var lastHeartbeatTime: Long = 0
+    private var lastHeartbeatLogTime: Long = 0
+    private var connectionActive: Boolean = false
+    
+    // 心跳日志标记
+    private val HEARTBEAT_LOG_TAG = "XDripAIDL_HEARTBEAT"
+    // =====================================
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -90,6 +83,17 @@ class XdripAidlService(
                 dataStatistics["null_data_count"] = (dataStatistics["null_data_count"] as? Int ?: 0) + 1
                 return
             }
+
+            // ========== 新增：检查是否为心跳数据 ==========
+            // 原因：作为备份检查，防止心跳数据被当作血糖数据处理
+            if (isHeartbeatData(data)) {
+                aapsLogger.debug(LTag.XDRIP, 
+                    "[${TEST_TAG}_HEARTBEAT_DETECTED] Heartbeat detected in onNewBgData(), treating as connection keepalive")
+                // 即使通过 onNewBgData() 收到心跳，也更新连接状态
+                handleHeartbeat(data.timestamp)
+                return  // 不处理为血糖数据
+            }
+            // ==========================================
 
             // 详细记录接收到的数据
             aapsLogger.debug(LTag.XDRIP,
@@ -132,12 +136,12 @@ class XdripAidlService(
 
             aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_CALLBACK_COMPLETE] Callback processing completed successfully")
         }
+        
+        // ========== 新增：心跳处理方法 ==========
         override fun onHeartbeat(timestamp: Long) {
-            // 处理心跳（只更新连接状态，不处理数据）
-            logger.debug("[XDripAIDL_HEARTBEAT] Heartbeat received: $timestamp")
-            lastHeartbeatTime = timestamp
-            updateConnectionStatus(true)
-        }        
+            handleHeartbeat(timestamp)
+        }
+        // =====================================
     }
 
     private val serviceConnection = object : ServiceConnection {
@@ -154,6 +158,10 @@ class XdripAidlService(
             isBound.set(true)
             isConnecting.set(false)
             _connectionState.value = ConnectionState.Connected
+
+            // ========== 新增：更新连接状态 ==========
+            updateConnectionStatus(true)
+            // =====================================
 
             // 记录连接成功
             dataStatistics["service_connected_count"] = (dataStatistics["service_connected_count"] as? Int ?: 0) + 1
@@ -208,6 +216,10 @@ class XdripAidlService(
             service = null
             _connectionState.value = ConnectionState.Disconnected
 
+            // ========== 新增：更新连接状态 ==========
+            updateConnectionStatus(false)
+            // =====================================
+
             // 记录断开连接
             dataStatistics["service_disconnected_count"] = (dataStatistics["service_disconnected_count"] as? Int ?: 0) + 1
             dataStatistics["last_service_disconnect"] = disconnectTime
@@ -224,6 +236,10 @@ class XdripAidlService(
             isBound.set(false)
             _connectionState.value = ConnectionState.Error("Binding died - need to restart connection")
 
+            // ========== 新增：更新连接状态 ==========
+            updateConnectionStatus(false)
+            // =====================================
+
             dataStatistics["binding_died_count"] = (dataStatistics["binding_died_count"] as? Int ?: 0) + 1
             dataStatistics["last_binding_died"] = System.currentTimeMillis()
 
@@ -236,6 +252,10 @@ class XdripAidlService(
                 "[${TEST_TAG}_NULL_BINDING] xDrip service returned null binding")
             isBound.set(false)
             _connectionState.value = ConnectionState.Error("Null binding - service may not be running")
+
+            // ========== 新增：更新连接状态 ==========
+            updateConnectionStatus(false)
+            // =====================================
 
             dataStatistics["null_binding_count"] = (dataStatistics["null_binding_count"] as? Int ?: 0) + 1
             dataStatistics["last_null_binding"] = System.currentTimeMillis()
@@ -266,45 +286,6 @@ class XdripAidlService(
         listeners.remove(listener)
         dataStatistics["total_listeners_removed"] = (dataStatistics["total_listeners_removed"] as? Int ?: 0) + 1
     }
-
-    /*
-    fun connect() {
-        if (isBound.get() || isConnecting.get()) {
-            aapsLogger.debug(LTag.XDRIP,
-                "[${TEST_TAG}_CONNECT_SKIP] Already connected or connecting. " +
-                        "isBound: ${isBound.get()}, isConnecting: ${isConnecting.get()}")
-            return
-        }
-
-        aapsLogger.info(LTag.XDRIP,
-            "[${TEST_TAG}_CONNECT_START] Initiating connection to xDrip BG data service")
-        isConnecting.set(true)
-        _connectionState.value = ConnectionState.Connecting
-
-        dataStatistics["connect_attempts"] = (dataStatistics["connect_attempts"] as? Int ?: 0) + 1
-        dataStatistics["last_connect_attempt"] = System.currentTimeMillis()
-
-        val intent = Intent().apply {
-            action = SERVICE_ACTION
-            `package` = XDRIP_PACKAGE
-        }
-
-        aapsLogger.debug(LTag.XDRIP,
-            "[${TEST_TAG}_CONNECT_INTENT] Intent details - " +
-                    "Action: $SERVICE_ACTION, " +
-                    "Package: $XDRIP_PACKAGE, " +
-                    "Intent: $intent")
-
-        try {
-            val connectStart = System.currentTimeMillis()
-            aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_BIND_SERVICE] Calling bindService()")
-            val result = context.bindService(intent, serviceConnection, BIND_FLAGS)
-            val bindTime = System.currentTimeMillis() - connectStart
-
-            aapsLogger.debug(LTag.XDRIP,
-                "[${TEST_TAG}_BIND_RESULT] bindService() completed in ${bindTime}ms, result: $result")
-        */
-
 
     fun connect() {
         if (isBound.get() || isConnecting.get()) {
@@ -415,6 +396,10 @@ class XdripAidlService(
         isBound.set(false)
         service = null
         _connectionState.value = ConnectionState.Disconnected
+
+        // ========== 新增：更新连接状态 ==========
+        updateConnectionStatus(false)
+        // =====================================
 
         aapsLogger.info(LTag.XDRIP,
             "[${TEST_TAG}_DISCONNECT_COMPLETE] Manual disconnect completed successfully")
@@ -567,6 +552,10 @@ class XdripAidlService(
         service = null
         _connectionState.value = ConnectionState.Error("Remote exception: ${e.message}")
 
+        // ========== 新增：更新连接状态 ==========
+        updateConnectionStatus(false)
+        // =====================================
+
         dataStatistics["remote_exceptions_handled"] = (dataStatistics["remote_exceptions_handled"] as? Int ?: 0) + 1
         dataStatistics["last_remote_exception"] = e.message.orEmpty()
         dataStatistics["last_remote_exception_time"] = System.currentTimeMillis()
@@ -615,7 +604,95 @@ class XdripAidlService(
                     "Total Callbacks: $callbackReceivedCount")
     }
 
-    // 移除了 @OnLifecycleEvent 方法
+    // ========== 新增：心跳处理方法 ==========
+    /**
+     * 处理心跳信号
+     * 原因：心跳只用于保持连接，不包含血糖数据
+     */
+    private fun handleHeartbeat(timestamp: Long) {
+        try {
+            // 更新最后心跳时间
+            lastHeartbeatTime = timestamp
+            
+            // 避免日志过多：每5分钟记录一次心跳日志
+            if (System.currentTimeMillis() - lastHeartbeatLogTime > 300000) { // 5分钟
+                aapsLogger.debug(LTag.XDRIP, 
+                    "[${HEARTBEAT_LOG_TAG}] Heartbeat received, connection active at ${formatTime(timestamp)}")
+                lastHeartbeatLogTime = System.currentTimeMillis()
+            }
+            
+            // 更新连接状态
+            updateConnectionStatus(true)
+            
+            // 记录统计
+            dataStatistics["heartbeat_received_count"] = (dataStatistics["heartbeat_received_count"] as? Int ?: 0) + 1
+            dataStatistics["last_heartbeat_time"] = timestamp
+            
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.XDRIP, "[${HEARTBEAT_LOG_TAG}_ERROR] Failed to handle heartbeat", e)
+            dataStatistics["heartbeat_errors"] = (dataStatistics["heartbeat_errors"] as? Int ?: 0) + 1
+        }
+    }
+
+    /**
+     * 更新连接状态
+     */
+    private fun updateConnectionStatus(active: Boolean) {
+        if (connectionActive != active) {
+            connectionActive = active
+            
+            aapsLogger.debug(LTag.XDRIP, 
+                "[${HEARTBEAT_LOG_TAG}_STATUS] Connection status changed: $active")
+            
+            // 通知所有监听器
+            listeners.forEachIndexed { index, listener ->
+                try {
+                    listener.onConnectionStateChanged(active)
+                    aapsLogger.debug(LTag.XDRIP, 
+                        "[${HEARTBEAT_LOG_TAG}_NOTIFY_${index}] Notified listener of connection change")
+                } catch (e: Exception) {
+                    aapsLogger.error(LTag.XDRIP, 
+                        "[${HEARTBEAT_LOG_TAG}_NOTIFY_${index}_ERROR] Failed to notify listener", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * 识别心跳数据（备份检查）
+     * 原因：确保即使心跳通过 onNewBgData() 发送，也不会被当作血糖数据处理
+     */
+    private fun isHeartbeatData(data: BgData): Boolean {
+        // 方法1：血糖值为0或无效值
+        if (data.glucose <= 0.0 || data.glucose > 500.0) {
+            return true
+        }
+        
+        // 方法2：来源标记为心跳
+        if (data.source?.contains("HEARTBEAT", ignoreCase = true) == true ||
+            data.source?.contains("XDrip_Heartbeat", ignoreCase = true) == true) {
+            return true
+        }
+        
+        // 方法3：序列号为特殊值（负值）
+        try {
+            // 尝试获取序列号
+            val seqNum = data.getSequenceNumber()
+            if (seqNum < 0) {
+                return true
+            }
+        } catch (e: Exception) {
+            // 如果无法获取序列号，继续其他检查
+        }
+        
+        // 方法4：有特定的 rawData 标记
+        if (data.rawData?.contains("HEARTBEAT", ignoreCase = true) == true) {
+            return true
+        }
+        
+        return false
+    }
+    // =====================================
 
     /**
      * 必须由调用方在适当时候调用（例如 Plugin.onDestroy 或 Service.onDestroy）
@@ -638,6 +715,11 @@ class XdripAidlService(
                     "Total Data Received: ${dataStatistics["total_received"] ?: 0} | " +
                     "Manual Requests: ${dataStatistics["manual_data_requests"] ?: 0} | " +
                     "Manual Success: ${dataStatistics["manual_data_success"] ?: 0}")
+        aapsLogger.info(LTag.XDRIP,
+            "[${TEST_TAG}_STATS_HEARTBEAT] Heartbeat Stats: " +
+                    "Heartbeats Received: ${dataStatistics["heartbeat_received_count"] ?: 0} | " +
+                    "Last Heartbeat: ${if (lastHeartbeatTime > 0) formatTime(lastHeartbeatTime) else "Never"} | " +
+                    "Connection Active: $connectionActive")
         aapsLogger.info(LTag.XDRIP,
             "[${TEST_TAG}_STATS_ERRORS] Error Stats: " +
                     "Null Data: ${dataStatistics["null_data_count"] ?: 0} | " +
@@ -673,11 +755,19 @@ class XdripAidlService(
                     "State: $state, " +
                     "Service instance: ${service != null}")
 
+        // ========== 新增：心跳检查 ==========
+        // 如果最近有收到心跳，即使状态显示断开也认为连接可用
+        val timeSinceLastHeartbeat = System.currentTimeMillis() - lastHeartbeatTime
+        val hasRecentHeartbeat = timeSinceLastHeartbeat < 120000 // 2分钟内有心跳
+        
         // 如果已绑定且服务实例存在，则认为连接正常
-        val isConnected = bound && service != null && state is ConnectionState.Connected
-
+        val isConnected = (bound && service != null && state is ConnectionState.Connected) || 
+                         (hasRecentHeartbeat && connectionActive)
+        
         aapsLogger.debug(LTag.XDRIP,
-            "[${TEST_TAG}_CONNECTION_RESULT] Connection status: $isConnected")
+            "[${TEST_TAG}_CONNECTION_RESULT] Connection status: $isConnected, " +
+                    "Recent heartbeat: $hasRecentHeartbeat (${timeSinceLastHeartbeat/1000}s ago)")
+        // ===================================
 
         return isConnected
     }
@@ -693,6 +783,14 @@ class XdripAidlService(
         stats["last_callback_time"] = lastCallbackTime
         stats["service_instance_exists"] = service != null
         stats["service_uptime"] = System.currentTimeMillis() - (dataStatistics["service_start_time"] as? Long ?: 0)
+        
+        // ========== 新增：心跳统计 ==========
+        stats["last_heartbeat_time"] = lastHeartbeatTime
+        stats["time_since_last_heartbeat"] = System.currentTimeMillis() - lastHeartbeatTime
+        stats["connection_active"] = connectionActive
+        stats["heartbeat_received_count"] = dataStatistics["heartbeat_received_count"] ?: 0
+        // ===================================
+        
         return stats
     }
 
