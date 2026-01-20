@@ -107,6 +107,7 @@ class XDripPlugin @Inject constructor(
         aidlService?.cleanup()
     }
 
+    /*
     private fun initializeAidlService() {
         val ctx = context ?: return
 
@@ -133,6 +134,73 @@ class XDripPlugin @Inject constructor(
             connect()
         }
     }
+    */
+
+    /////////////////
+// 添加重试计数器
+private var connectionRetryCount = 0
+private val maxRetryCount = 3
+private val retryDelay = 5000L // 5秒
+
+// 修改连接逻辑
+private fun initializeAidlService() {
+    val ctx = context ?: return
+    
+    aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service, retry: $connectionRetryCount")
+    
+    if (connectionRetryCount >= maxRetryCount) {
+        aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_MAX_RETRY] Max retry count reached")
+        return
+    }
+    
+    aidlService = XdripAidlService(ctx, aapsLogger).apply {
+        addListener(object : XdripAidlService.XdripDataListener {
+            override fun onNewBgData(data: com.eveningoutpost.dexdrip.BgData) {
+                processAidlData(data)
+                // 重置重试计数
+                connectionRetryCount = 0
+            }
+            
+            override fun onConnectionStateChanged(connected: Boolean) {
+                aapsLogger.debug(LTag.BGSOURCE,
+                    "[${TEST_TAG}_CONNECTION] AIDL connection: $connected")
+                
+                if (!connected) {
+                    // 连接断开，计划重连
+                    scheduleReconnect()
+                } else {
+                    connectionRetryCount = 0
+                }
+            }
+            
+            override fun onError(error: String) {
+                aapsLogger.error(LTag.BGSOURCE,
+                    "[${TEST_TAG}_ERROR] AIDL error: $error")
+                scheduleReconnect()
+            }
+        })
+        
+        // 开始连接
+        connect()
+    }
+}
+
+// 添加重连方法
+private fun scheduleReconnect() {
+    connectionRetryCount++
+    
+    aapsLogger.debug(LTag.BGSOURCE,
+        "[${TEST_TAG}_RECONNECT] Scheduling reconnect in $retryDelay ms, attempt $connectionRetryCount")
+    
+    // 使用 Handler 或协程延迟重连
+    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+        if (isEnabled() && connectionRetryCount <= maxRetryCount) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_RECONNECT] Attempting reconnect")
+            initializeAidlService()
+        }
+    }, retryDelay)
+}
+    /////////////////
 
     fun processAidlData(bgData: com.eveningoutpost.dexdrip.BgData) {
         totalDataReceived++
