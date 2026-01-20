@@ -1,5 +1,9 @@
 package app.aaps
 
+import android.os.Handler
+import android.os.Looper
+import app.aaps.utils.BatteryOptimizationUtil
+
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
@@ -22,6 +26,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.widget.Toolbar
@@ -46,6 +51,7 @@ import app.aaps.core.interfaces.rx.AapsSchedulers
 import app.aaps.core.interfaces.rx.events.EventAppInitialized
 import app.aaps.core.interfaces.rx.events.EventPreferenceChange
 import app.aaps.core.interfaces.rx.events.EventRebuildTabs
+import app.aaps.core.interfaces.sharedPreferences.SP
 import app.aaps.core.interfaces.smsCommunicator.SmsCommunicator
 import app.aaps.core.interfaces.ui.IconsProvider
 import app.aaps.core.interfaces.ui.UiInteraction
@@ -84,6 +90,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
     private val disposable = CompositeDisposable()
 
     @Inject lateinit var aapsSchedulers: AapsSchedulers
+    @Inject lateinit var sp: SP
     @Inject lateinit var versionCheckerUtils: VersionCheckerUtils
     @Inject lateinit var smsCommunicator: SmsCommunicator
     @Inject lateinit var loop: Loop
@@ -108,8 +115,30 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
     private var menuOpen = false
     private var isProtectionCheckActive = false
     private lateinit var binding: ActivityMainBinding
-    private var mainMenuProvider: MenuProvider? = null
 
+    companion object {
+    private const val REQUEST_CODE_BATTERY_OPTIMIZATION = 1001 // 必须与工具类中的请求码一致
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
+    
+    if (requestCode == REQUEST_CODE_BATTERY_OPTIMIZATION) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val hasPermission = BatteryOptimizationUtil.isIgnoringBatteryOptimizations(this)
+            val feedback = if (hasPermission) {
+                R.string.battery_permission_granted_thanks
+            } else {
+                R.string.battery_permission_warning
+            }
+            runOnUiThread {
+                Toast.makeText(this, getString(feedback), Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+}
+    
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Iconify.with(FontAwesomeModule())
@@ -125,6 +154,18 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
             it.syncState()
         }
 
+
+        Handler(Looper.getMainLooper()).postDelayed({
+        // 传递字符串，而非资源ID，彻底避免R引用问题
+        BatteryOptimizationUtil.checkAndRequestIfNeeded(
+            this,
+            getString(R.string.please_allow_permission), // 这里在Activity中获取字符串是安全的
+            getString(R.string.aaps_needs_whitelisting_for_proper_performance),
+            getString(R.string.go_to_settings),
+            getString(R.string.later)
+        )
+    }, 1500)
+        
         // initialize screen wake lock
         processPreferenceChange(EventPreferenceChange(BooleanKey.OverviewKeepScreenOn.key))
 
@@ -158,7 +199,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
                 else finish()
             }
         })
-        mainMenuProvider = object : MenuProvider {
+        addMenuProvider(object : MenuProvider {
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                 MenuCompat.setGroupDividerEnabled(menu, true)
                 this@MainActivity.menu = menu
@@ -262,8 +303,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
                     else                        ->
                         actionBarDrawerToggle.onOptionsItemSelected(menuItem)
                 }
-        }
-        mainMenuProvider?.let { addMenuProvider(it) }
+        })
         // Setup views on 2nd and next activity start
         // On 1st start app is still initializing, start() is delayed and run from EventAppInitialized
         if (config.appInitialized) setupViews()
@@ -271,6 +311,8 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
 
     private fun start() {
         binding.splash.visibility = View.GONE
+        //Check here if loop plugin is disabled. Else check via constraints
+        if (!loop.isEnabled()) versionCheckerUtils.triggerCheckVersion()
         setUserStats()
         setupViews()
 
@@ -339,9 +381,6 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
 
     override fun onDestroy() {
         super.onDestroy()
-        binding.mainPager.adapter = null
-        binding.mainDrawerLayout.removeDrawerListener(actionBarDrawerToggle)
-        mainMenuProvider?.let { removeMenuProvider(it) }
         disposable.clear()
     }
 
@@ -522,7 +561,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
                 fh.delete()
                 // Also clear any stored password
                 exportPasswordDataStore.clearPasswordDataStore(context)
-                ToastUtils.okToast(context, context.getString(app.aaps.core.ui.R.string.password_set), isShort = false)
+                ToastUtils.okToast(context, context.getString(app.aaps.core.ui.R.string.password_set))
             }.start()
         }
     }
