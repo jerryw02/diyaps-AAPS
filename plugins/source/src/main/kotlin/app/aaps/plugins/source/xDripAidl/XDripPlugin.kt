@@ -84,6 +84,12 @@ class XDripPlugin @Inject constructor(
     private var lastProcessedTimestamp: Long = 0
     private var lastGlucoseValue: Double = 0.0
     private var lastProcessedTime: Long = 0L
+    
+    // ========== 新增：心跳相关统计 ==========
+    private var heartbeatReceivedCount = 0
+    private var lastHeartbeatTime: Long = 0
+    private var connectionActive: Boolean = false
+    // =====================================
 
     override fun advancedFilteringSupported(): Boolean = advancedFiltering
 
@@ -107,100 +113,73 @@ class XDripPlugin @Inject constructor(
         aidlService?.cleanup()
     }
 
-    /*
+    // 添加重试计数器
+    private var connectionRetryCount = 0
+    private val maxRetryCount = 3
+    private val retryDelay = 5000L // 5秒
+
+    // 修改连接逻辑
     private fun initializeAidlService() {
         val ctx = context ?: return
-
-        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service")
-
+        
+        aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service, retry: $connectionRetryCount")
+        
+        if (connectionRetryCount >= maxRetryCount) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_MAX_RETRY] Max retry count reached")
+            return
+        }
+        
         aidlService = XdripAidlService(ctx, aapsLogger).apply {
             addListener(object : XdripAidlService.XdripDataListener {
                 override fun onNewBgData(data: com.eveningoutpost.dexdrip.BgData) {
                     processAidlData(data)
+                    // 重置重试计数
+                    connectionRetryCount = 0
                 }
-
+                
                 override fun onConnectionStateChanged(connected: Boolean) {
                     aapsLogger.debug(LTag.BGSOURCE,
                         "[${TEST_TAG}_CONNECTION] AIDL connection: $connected")
+                    
+                    // ========== 新增：更新插件连接状态 ==========
+                    updatePluginConnectionState(connected)
+                    // =========================================
+                    
+                    if (!connected) {
+                        // 连接断开，计划重连
+                        scheduleReconnect()
+                    } else {
+                        connectionRetryCount = 0
+                    }
                 }
-
+                
                 override fun onError(error: String) {
                     aapsLogger.error(LTag.BGSOURCE,
                         "[${TEST_TAG}_ERROR] AIDL error: $error")
+                    scheduleReconnect()
                 }
             })
-
+            
             // 开始连接
             connect()
         }
     }
-    */
 
-    /////////////////
-// 添加重试计数器
-private var connectionRetryCount = 0
-private val maxRetryCount = 3
-private val retryDelay = 5000L // 5秒
-
-// 修改连接逻辑
-private fun initializeAidlService() {
-    val ctx = context ?: return
-    
-    aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_INIT] Initializing AIDL service, retry: $connectionRetryCount")
-    
-    if (connectionRetryCount >= maxRetryCount) {
-        aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_MAX_RETRY] Max retry count reached")
-        return
-    }
-    
-    aidlService = XdripAidlService(ctx, aapsLogger).apply {
-        addListener(object : XdripAidlService.XdripDataListener {
-            override fun onNewBgData(data: com.eveningoutpost.dexdrip.BgData) {
-                processAidlData(data)
-                // 重置重试计数
-                connectionRetryCount = 0
-            }
-            
-            override fun onConnectionStateChanged(connected: Boolean) {
-                aapsLogger.debug(LTag.BGSOURCE,
-                    "[${TEST_TAG}_CONNECTION] AIDL connection: $connected")
-                
-                if (!connected) {
-                    // 连接断开，计划重连
-                    scheduleReconnect()
-                } else {
-                    connectionRetryCount = 0
-                }
-            }
-            
-            override fun onError(error: String) {
-                aapsLogger.error(LTag.BGSOURCE,
-                    "[${TEST_TAG}_ERROR] AIDL error: $error")
-                scheduleReconnect()
-            }
-        })
+    // 添加重连方法
+    private fun scheduleReconnect() {
+        connectionRetryCount++
         
-        // 开始连接
-        connect()
+        aapsLogger.debug(LTag.BGSOURCE,
+            "[${TEST_TAG}_RECONNECT] Scheduling reconnect in $retryDelay ms, attempt $connectionRetryCount")
+        
+        // 使用 Handler 或协程延迟重连
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (isEnabled() && connectionRetryCount <= maxRetryCount) {
+                aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_RECONNECT] Attempting reconnect")
+                initializeAidlService()
+            }
+        }, retryDelay)
     }
-}
-
-// 添加重连方法
-private fun scheduleReconnect() {
-    connectionRetryCount++
-    
-    aapsLogger.debug(LTag.BGSOURCE,
-        "[${TEST_TAG}_RECONNECT] Scheduling reconnect in $retryDelay ms, attempt $connectionRetryCount")
-    
-    // 使用 Handler 或协程延迟重连
-    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-        if (isEnabled() && connectionRetryCount <= maxRetryCount) {
-            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_RECONNECT] Attempting reconnect")
-            initializeAidlService()
-        }
-    }, retryDelay)
-}
-    /////////////////
 
     fun processAidlData(bgData: com.eveningoutpost.dexdrip.BgData) {
         totalDataReceived++
@@ -209,6 +188,13 @@ private fun scheduleReconnect() {
         aapsLogger.debug(LTag.BGSOURCE,
             "[${TEST_TAG}_DATA_${processId}] Received AIDL data: " +
             "${bgData.glucose} mg/dL at ${formatTime(bgData.timestamp)}")
+
+        // 0. 首先检查是否为心跳数据（强化检查）
+        if (isHeartbeatDataStrict(bgData)) {
+            aapsLogger.debug(LTag.BGSOURCE, 
+                "[${TEST_TAG}_HEARTBEAT_FILTERED_${processId}] Heartbeat data filtered out")
+            return  // 心跳数据，不进行后续处理
+        }
 
         // 1. 数据验证
         if (!validateBgData(bgData)) {
@@ -234,6 +220,58 @@ private fun scheduleReconnect() {
             "[${TEST_TAG}_PROCESSED_${processId}] Processed xDrip AIDL data: " +
             "${bgData.glucose} mg/dL (${bgData.direction})")
     }
+
+    // ========== 新增：严格的心跳数据检查 ==========
+    private fun isHeartbeatDataStrict(data: com.eveningoutpost.dexdrip.BgData): Boolean {
+        // 方法1：血糖值为0或无效
+        if (data.glucose <= 0.0 || data.glucose > 500.0) {
+            return true
+        }
+        
+        // 方法2：来源标记为心跳
+        if (data.source?.contains("HEARTBEAT", ignoreCase = true) == true ||
+            data.source?.contains("XDrip_Heartbeat", ignoreCase = true) == true) {
+            return true
+        }
+        
+        // 方法3：使用反射检查序列号（如果可用）
+        return try {
+            val method = data::class.java.getMethod("getSequenceNumber")
+            val seqNum = method.invoke(data) as? Long
+            seqNum != null && seqNum < 0
+        } catch (e: Exception) {
+            false
+        }
+    }
+    // ============================================
+
+    // ========== 新增：更新插件连接状态方法 ==========
+    private fun updatePluginConnectionState(connected: Boolean) {
+        connectionActive = connected
+        if (connected) {
+            aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_CONNECTED] xDrip AIDL connection established")
+        } else {
+            aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_DISCONNECTED] xDrip AIDL connection lost")
+        }
+    }
+    // =============================================
+
+    // ========== 新增：处理心跳信号 ==========
+    /**
+     * 处理心跳信号（如果通过其他方式收到）
+     */
+    private fun handleHeartbeat(timestamp: Long) {
+        heartbeatReceivedCount++
+        lastHeartbeatTime = timestamp
+        connectionActive = true
+        
+        // 每10次心跳记录一次日志，避免日志过多
+        if (heartbeatReceivedCount % 10 == 0) {
+            aapsLogger.debug(LTag.BGSOURCE, 
+                "[${TEST_TAG}_HEARTBEAT] Heartbeat received: count=$heartbeatReceivedCount, last=${formatTime(timestamp)}")
+        }
+    }
+    // ======================================
 
     // ========== 新增方法：处理并转发数据到 AAPS 核心系统 ==========
     /**
@@ -342,7 +380,7 @@ private fun scheduleReconnect() {
         }
     }
 
-    // ========== 原有方法保持不变 ==========
+    // ========== 原有方法保持不变，但添加心跳检查 ==========
     private fun validateBgData(data: com.eveningoutpost.dexdrip.BgData): Boolean {
         // 检查数据有效性
         if (!data.isValid()) {
@@ -350,6 +388,14 @@ private fun scheduleReconnect() {
                 "[${TEST_TAG}_VALIDATION] Invalid glucose value: ${data.glucose}")
             return false
         }
+
+        // ========== 新增：再次检查心跳数据（双重保险） ==========
+        if (isHeartbeatDataStrict(data)) {
+            aapsLogger.warn(LTag.BGSOURCE,
+                "[${TEST_TAG}_VALIDATION] Heartbeat data detected in validation")
+            return false
+        }
+        // ===================================================
 
         // 检查数据年龄（不超过15分钟）
         val dataAgeMinutes = getDataAge(data.timestamp) / 60
@@ -396,7 +442,13 @@ private fun scheduleReconnect() {
     }
 
     fun isConnected(): Boolean {
-        return aidlService?.checkConnectionStatus() ?: false
+        // ========== 修改：考虑心跳时间的连接检查 ==========
+        val serviceConnected = aidlService?.checkConnectionStatus() ?: false
+        val timeSinceLastHeartbeat = System.currentTimeMillis() - lastHeartbeatTime
+        val hasRecentHeartbeat = timeSinceLastHeartbeat < 120000 // 2分钟内有心跳
+        
+        return serviceConnected || (connectionActive && hasRecentHeartbeat)
+        // ==============================================
     }
 
     fun getConnectionState(): XdripAidlService.ConnectionState? {
@@ -408,7 +460,7 @@ private fun scheduleReconnect() {
     }
 
     fun getPluginStatistics(): Map<String, Any> {
-        return mapOf(
+        val stats = mutableMapOf(
             "total_data_received" to totalDataReceived,
             "last_glucose_value" to lastGlucoseValue,
             "last_processed_timestamp" to lastProcessedTimestamp,
@@ -417,6 +469,16 @@ private fun scheduleReconnect() {
             "advanced_filtering" to advancedFiltering,
             "service_connected" to (aidlService?.checkConnectionStatus() ?: false)
         )
+        
+        // ========== 新增：心跳统计 ==========
+        stats["heartbeat_received_count"] = heartbeatReceivedCount
+        stats["last_heartbeat_time"] = lastHeartbeatTime
+        stats["time_since_last_heartbeat"] = System.currentTimeMillis() - lastHeartbeatTime
+        stats["connection_active"] = connectionActive
+        stats["connection_retry_count"] = connectionRetryCount
+        // ===================================
+        
+        return stats
     }
 
 
@@ -468,4 +530,25 @@ private fun scheduleReconnect() {
             aapsLogger.warn(LTag.BGSOURCE, "[${TEST_TAG}_MANUAL_FETCH] No data available")
         }
     }
+    
+    // ========== 新增：获取插件连接状态 ==========
+    fun getConnectionStatus(): String {
+        return aidlService?.let { service ->
+            val connected = service.checkConnectionStatus()
+            val stats = service.getStatistics()
+            val lastHeartbeat = stats["last_heartbeat_time"] as? Long ?: 0
+            
+            return if (connected) {
+                if (lastHeartbeat > 0) {
+                    val timeSince = (System.currentTimeMillis() - lastHeartbeat) / 1000
+                    "Connected (heartbeat ${timeSince}s ago)"
+                } else {
+                    "Connected"
+                }
+            } else {
+                "Disconnected"
+            }
+        } ?: "Service not initialized"
+    }
+    // =========================================
 }
