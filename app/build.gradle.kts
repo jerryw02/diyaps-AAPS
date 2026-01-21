@@ -274,9 +274,10 @@ dependencies {
     // Remote config
     api(libs.com.google.firebase.config)
 
-    // 如果有Kotlin相关依赖，确保版本匹配
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.22" // 使用项目现有的版本
-    implementation "org.jetbrains.kotlin:kotlin-reflect:1.8.22" // 添加这个
+    // Kotlin标准库（如果还没有）
+    implementation(kotlin("stdlib", version = "1.8.22"))    
+    // Kotlin反射库（用于解决KSP问题）
+    implementation(kotlin("reflect", version = "1.8.22"))
 
 }
 
