@@ -29,6 +29,10 @@ import java.util.Locale;
  * 封装所有复杂逻辑，提供简单接口
  * 参考 xDrip 的 JoH.forceBatteryWhitelisting() 设计
  */
+/**
+ * 电池白名单强制执行器 - 纯Java版本
+ * 避免使用Kotlin反射，解决KSP编译问题
+ */
 public class BatteryWhitelistEnforcer {
     private static final String TAG = "BatteryWhitelist";
     
@@ -46,7 +50,7 @@ public class BatteryWhitelistEnforcer {
     /**
      * 获取单例实例
      */
-    public static BatteryWhitelistEnforcer getInstance(Context context) {
+    public static synchronized BatteryWhitelistEnforcer getInstance(Context context) {
         if (instance == null) {
             instance = new BatteryWhitelistEnforcer(context);
         }
@@ -55,50 +59,51 @@ public class BatteryWhitelistEnforcer {
     
     /**
      * 主方法：强制加入电池优化白名单
-     * 在MainActivity中只需调用此方法
      * 使用方式：BatteryWhitelistEnforcer.getInstance(this).forceWhitelisting();
      */
     public void forceWhitelisting() {
-        Log.d(TAG, "Starting forceBatteryWhitelisting process...");
+        Log.d(TAG, "开始强制电池白名单处理...");
         
-        // 在新线程中执行，避免阻塞UI
-        new Thread(() -> {
-            try {
-                // 1. 先检查是否已经在白名单中
-                if (isInBatteryWhitelistInternal()) {
-                    Log.d(TAG, "Already in battery whitelist, skipping");
-                    showToast("已在电池优化白名单中");
-                    return;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 1. 先检查是否已经在白名单中
+                    if (isInBatteryWhitelistInternal()) {
+                        Log.d(TAG, "已在电池白名单中，跳过");
+                        showToast("已在电池优化白名单中");
+                        return;
+                    }
+                    
+                    // 2. 记录当前状态
+                    logCurrentStatus();
+                    
+                    // 3. 尝试多种方法（按优先级）
+                    boolean success = false;
+                    
+                    // 方法1：系统级反射调用（xDrip方式）
+                    success = forceSystemWhitelistingViaReflection();
+                    
+                    // 方法2：标准Android API
+                    if (!success && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        success = forceStandardWhitelisting();
+                    }
+                    
+                    // 方法3：鸿蒙特定方法
+                    if (!success && isHarmonyOS()) {
+                        success = forceHarmonyWhitelisting();
+                    }
+                    
+                    // 4. 处理结果
+                    handleWhitelistResult(success);
+                    
+                    // 5. 验证最终状态
+                    verifyAndLogFinalStatus();
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "白名单处理错误: " + e.getMessage(), e);
+                    showToast("白名单设置失败，请手动设置");
                 }
-                
-                // 2. 记录当前状态
-                logCurrentStatus();
-                
-                // 3. 尝试多种方法（按优先级）
-                boolean success = false;
-                
-                // 方法1：系统级反射调用（xDrip方式）
-                success = forceSystemWhitelistingViaReflection();
-                
-                // 方法2：标准Android API
-                if (!success && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    success = forceStandardWhitelisting();
-                }
-                
-                // 方法3：鸿蒙特定方法
-                if (!success && isHarmonyOS()) {
-                    success = forceHarmonyWhitelisting();
-                }
-                
-                // 4. 处理结果
-                handleWhitelistResult(success);
-                
-                // 5. 验证最终状态
-                verifyAndLogFinalStatus();
-                
-            } catch (Exception e) {
-                Log.e(TAG, "Error in forceWhitelisting: " + e.getMessage(), e);
-                showToast("白名单设置失败，请手动设置");
             }
         }).start();
     }
@@ -107,7 +112,7 @@ public class BatteryWhitelistEnforcer {
      * 方法1：系统级反射调用（xDrip核心方法）
      */
     private boolean forceSystemWhitelistingViaReflection() {
-        Log.d(TAG, "Attempting system whitelisting via reflection (xDrip method)...");
+        Log.d(TAG, "尝试通过反射进行系统级白名单设置(xDrip方法)...");
         
         try {
             // 获取ServiceManager
@@ -118,11 +123,11 @@ public class BatteryWhitelistEnforcer {
             IBinder binder = (IBinder) getServiceMethod.invoke(null, "deviceidle");
             
             if (binder == null) {
-                Log.e(TAG, "Failed to get deviceidle service binder");
+                Log.e(TAG, "无法获取deviceidle服务binder");
                 return false;
             }
             
-            Log.d(TAG, "Got deviceidle service binder successfully");
+            Log.d(TAG, "成功获取deviceidle服务binder");
             
             // 调用addPowerSaveWhitelistApp方法
             Parcel data = Parcel.obtain();
@@ -136,7 +141,7 @@ public class BatteryWhitelistEnforcer {
                 binder.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0);
                 reply.readException();
                 
-                Log.d(TAG, "Successfully called addPowerSaveWhitelistApp via reflection");
+                Log.d(TAG, "通过反射成功调用addPowerSaveWhitelistApp");
                 return true;
                 
             } finally {
@@ -145,11 +150,11 @@ public class BatteryWhitelistEnforcer {
             }
             
         } catch (ClassNotFoundException e) {
-            Log.e(TAG, "ServiceManager class not found", e);
+            Log.e(TAG, "ServiceManager类未找到", e);
         } catch (NoSuchMethodException e) {
-            Log.e(TAG, "getService method not found", e);
+            Log.e(TAG, "getService方法未找到", e);
         } catch (Exception e) {
-            Log.e(TAG, "Reflection error: " + e.getMessage(), e);
+            Log.e(TAG, "反射错误: " + e.getMessage(), e);
         }
         
         return false;
@@ -159,12 +164,12 @@ public class BatteryWhitelistEnforcer {
      * 方法2：标准Android API
      */
     private boolean forceStandardWhitelisting() {
-        Log.d(TAG, "Attempting standard Android whitelisting...");
+        Log.d(TAG, "尝试标准Android白名单设置...");
         
         try {
             PowerManager powerManager = (PowerManager) appContext.getSystemService(Context.POWER_SERVICE);
             if (powerManager == null) {
-                Log.e(TAG, "Cannot get PowerManager service");
+                Log.e(TAG, "无法获取PowerManager服务");
                 return false;
             }
             
@@ -172,14 +177,19 @@ public class BatteryWhitelistEnforcer {
             
             // 检查是否已经在白名单中
             if (powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                Log.d(TAG, "Already in standard battery whitelist");
+                Log.d(TAG, "已在标准电池白名单中");
                 return true;
             }
             
             // 需要用户交互，在UI线程中执行
             if (appContext instanceof Activity) {
-                Activity activity = (Activity) appContext;
-                activity.runOnUiThread(() -> showStandardWhitelistDialog(activity));
+                final Activity activity = (Activity) appContext;
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        showStandardWhitelistDialog(activity);
+                    }
+                });
             } else {
                 // 非Activity上下文，直接打开设置
                 openBatteryOptimizationSettings();
@@ -189,7 +199,7 @@ public class BatteryWhitelistEnforcer {
             return true;
             
         } catch (Exception e) {
-            Log.e(TAG, "Error in standard whitelisting: " + e.getMessage(), e);
+            Log.e(TAG, "标准白名单设置错误: " + e.getMessage(), e);
             return false;
         }
     }
@@ -198,7 +208,7 @@ public class BatteryWhitelistEnforcer {
      * 方法3：鸿蒙特定方法
      */
     private boolean forceHarmonyWhitelisting() {
-        Log.d(TAG, "Attempting HarmonyOS specific whitelisting...");
+        Log.d(TAG, "尝试鸿蒙系统特定白名单设置...");
         
         try {
             // 尝试多种鸿蒙方法
@@ -213,15 +223,20 @@ public class BatteryWhitelistEnforcer {
             
             // 方法3.3：引导用户设置
             if (!success && appContext instanceof Activity) {
-                Activity activity = (Activity) appContext;
-                activity.runOnUiThread(() -> showHarmonyWhitelistGuide(activity));
+                final Activity activity = (Activity) appContext;
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        showHarmonyWhitelistGuide(activity);
+                    }
+                });
                 success = true; // 已触发引导流程
             }
             
             return success;
             
         } catch (Exception e) {
-            Log.e(TAG, "Error in Harmony whitelisting: " + e.getMessage(), e);
+            Log.e(TAG, "鸿蒙白名单设置错误: " + e.getMessage(), e);
             return false;
         }
     }
@@ -245,15 +260,15 @@ public class BatteryWhitelistEnforcer {
             for (String prop : properties) {
                 try {
                     setMethod.invoke(null, prop, packageName);
-                    Log.d(TAG, "Set Harmony property: " + prop + " = " + packageName);
+                    Log.d(TAG, "设置鸿蒙属性: " + prop + " = " + packageName);
                 } catch (Exception e) {
-                    Log.d(TAG, "Failed to set property: " + prop);
+                    Log.d(TAG, "设置属性失败: " + prop);
                 }
             }
             
             return true;
         } catch (Exception e) {
-            Log.w(TAG, "Failed to set Harmony system properties", e);
+            Log.w(TAG, "设置鸿蒙系统属性失败", e);
             return false;
         }
     }
@@ -277,7 +292,7 @@ public class BatteryWhitelistEnforcer {
                     IBinder binder = (IBinder) getService.invoke(null, serviceName);
                     
                     if (binder != null) {
-                        Log.d(TAG, "Found Harmony service: " + serviceName);
+                        Log.d(TAG, "发现鸿蒙服务: " + serviceName);
                         return callHarmonyWhitelistMethod(binder);
                     }
                 } catch (Exception e) {
@@ -288,7 +303,7 @@ public class BatteryWhitelistEnforcer {
             return false;
             
         } catch (Exception e) {
-            Log.w(TAG, "Error calling Harmony service", e);
+            Log.w(TAG, "调用鸿蒙服务错误", e);
             return false;
         }
     }
@@ -316,7 +331,7 @@ public class BatteryWhitelistEnforcer {
                     binder.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0);
                     reply.readException();
                     
-                    Log.d(TAG, "Successfully called Harmony whitelist method with descriptor: " + descriptor);
+                    Log.d(TAG, "成功调用鸿蒙白名单方法，描述符: " + descriptor);
                     return true;
                     
                 } catch (Exception e) {
@@ -330,7 +345,7 @@ public class BatteryWhitelistEnforcer {
             reply.recycle();
             
         } catch (Exception e) {
-            Log.e(TAG, "Error in Harmony whitelist method call", e);
+            Log.e(TAG, "鸿蒙白名单方法调用错误", e);
         }
         
         return false;
@@ -349,7 +364,7 @@ public class BatteryWhitelistEnforcer {
             }
             return false;
         } catch (Exception e) {
-            Log.e(TAG, "Error checking whitelist status", e);
+            Log.e(TAG, "检查白名单状态错误", e);
             return false;
         }
     }
@@ -362,11 +377,13 @@ public class BatteryWhitelistEnforcer {
             // 方法1：检查Build属性
             String manufacturer = Build.MANUFACTURER.toLowerCase();
             if (manufacturer.contains("huawei") || manufacturer.contains("honor")) {
-                // 检查鸿蒙特有属性
-                Class<?> buildExClass = Class.forName("ohos.system.version.SystemVersion");
-                Method getVersion = buildExClass.getMethod("getVersion");
-                String version = (String) getVersion.invoke(null);
-                return version != null && version.startsWith("6.");
+                // 尝试检测鸿蒙
+                try {
+                    Class.forName("ohos.system.version.SystemVersion");
+                    return true;
+                } catch (ClassNotFoundException e) {
+                    // 不是鸿蒙或没有鸿蒙类
+                }
             }
             return false;
         } catch (Exception e) {
@@ -379,9 +396,9 @@ public class BatteryWhitelistEnforcer {
     /**
      * 显示标准白名单对话框
      */
-    private void showStandardWhitelistDialog(Activity activity) {
-        SharedPreferences prefs = activity.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
-        int shownCount = prefs.getInt("standard_dialog_shown", 0);
+    private void showStandardWhitelistDialog(final Activity activity) {
+        final SharedPreferences prefs = activity.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
+        final int shownCount = prefs.getInt("standard_dialog_shown", 0);
         
         if (shownCount < 2) { // 最多显示2次
             new AlertDialog.Builder(activity)
@@ -406,9 +423,9 @@ public class BatteryWhitelistEnforcer {
     /**
      * 显示鸿蒙白名单引导
      */
-    private void showHarmonyWhitelistGuide(Activity activity) {
-        SharedPreferences prefs = activity.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
-        int shownCount = prefs.getInt("harmony_guide_shown", 0);
+    private void showHarmonyWhitelistGuide(final Activity activity) {
+        final SharedPreferences prefs = activity.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
+        final int shownCount = prefs.getInt("harmony_guide_shown", 0);
         
         if (shownCount < 2) {
             new AlertDialog.Builder(activity)
@@ -452,7 +469,7 @@ public class BatteryWhitelistEnforcer {
             appContext.startActivity(intent);
             
         } catch (Exception e) {
-            Log.e(TAG, "Failed to open battery optimization settings", e);
+            Log.e(TAG, "打开电池优化设置失败", e);
             openAppSettings();
         }
     }
@@ -477,7 +494,7 @@ public class BatteryWhitelistEnforcer {
             openAppSettings();
             
         } catch (Exception e) {
-            Log.e(TAG, "Failed to open Harmony app settings", e);
+            Log.e(TAG, "打开鸿蒙应用设置失败", e);
             openAppSettings();
         }
     }
@@ -492,7 +509,7 @@ public class BatteryWhitelistEnforcer {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             appContext.startActivity(intent);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to open app settings", e);
+            Log.e(TAG, "打开应用设置失败", e);
         }
     }
     
@@ -516,69 +533,100 @@ public class BatteryWhitelistEnforcer {
         
         // 保存记录
         String history = prefs.getString("attempt_history", "");
+        SimpleDateFormat sdf = new SimpleDateFormat("MM-dd HH:mm", Locale.US);
         String record = String.format(Locale.US, "[%s] %s\n",
-            new SimpleDateFormat("MM-dd HH:mm", Locale.US).format(new Date()),
+            sdf.format(new Date()),
             success ? "SUCCESS" : "FAILED"
         );
         
         // 保留最近10条记录
         String[] records = (record + history).split("\n");
-        if (records.length > 10) {
-            records = Arrays.copyOfRange(records, 0, 10);
+        List<String> recordList = new ArrayList<>();
+        for (int i = 0; i < Math.min(records.length, 10); i++) {
+            if (records[i] != null && !records[i].trim().isEmpty()) {
+                recordList.add(records[i]);
+            }
         }
         
         prefs.edit()
             .putInt("total_attempts", totalAttempts)
             .putInt("successful_attempts", successfulAttempts)
-            .putString("attempt_history", String.join("\n", records))
+            .putString("attempt_history", joinStrings(recordList, "\n"))
             .putLong("last_attempt", System.currentTimeMillis())
             .putBoolean("last_success", success)
             .apply();
         
-        Log.d(TAG, "Whitelist attempt recorded: " + (success ? "SUCCESS" : "FAILED"));
+        Log.d(TAG, "白名单尝试记录: " + (success ? "成功" : "失败"));
+    }
+    
+    /**
+     * 字符串连接辅助方法
+     */
+    private String joinStrings(List<String> strings, String delimiter) {
+        if (strings == null || strings.isEmpty()) {
+            return "";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < strings.size(); i++) {
+            sb.append(strings.get(i));
+            if (i < strings.size() - 1) {
+                sb.append(delimiter);
+            }
+        }
+        return sb.toString();
     }
     
     /**
      * 验证并记录最终状态
      */
     private void verifyAndLogFinalStatus() {
-        new Thread(() -> {
-            try {
-                // 等待系统更新
-                Thread.sleep(2000);
-                
-                // 检查最终状态
-                boolean finalStatus = isInBatteryWhitelistInternal();
-                
-                // 记录详细状态
-                StringBuilder status = new StringBuilder();
-                status.append("=== Battery Whitelist Final Status ===\n");
-                status.append("Time: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("\n");
-                status.append("Package: ").append(appContext.getPackageName()).append("\n");
-                status.append("Manufacturer: ").append(Build.MANUFACTURER).append("\n");
-                status.append("Model: ").append(Build.MODEL).append("\n");
-                status.append("Android: ").append(Build.VERSION.RELEASE).append("\n");
-                status.append("HarmonyOS: ").append(isHarmonyOS()).append("\n");
-                status.append("In Whitelist: ").append(finalStatus ? "YES" : "NO").append("\n");
-                
-                Log.d(TAG, status.toString());
-                
-                // 保存状态日志
-                SharedPreferences prefs = appContext.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
-                prefs.edit()
-                    .putString("last_status_log", status.toString())
-                    .putLong("last_status_check", System.currentTimeMillis())
-                    .putBoolean("last_in_whitelist", finalStatus)
-                    .apply();
-                
-                if (!finalStatus && appContext instanceof Activity) {
-                    // 如果最终不在白名单中，显示重要警告
-                    Activity activity = (Activity) appContext;
-                    activity.runOnUiThread(() -> showCriticalWarning(activity));
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 等待系统更新
+                    Thread.sleep(2000);
+                    
+                    // 检查最终状态
+                    boolean finalStatus = isInBatteryWhitelistInternal();
+                    
+                    // 记录详细状态
+                    StringBuilder status = new StringBuilder();
+                    status.append("=== 电池白名单最终状态 ===\n");
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    status.append("时间: ").append(sdf.format(new Date())).append("\n");
+                    status.append("包名: ").append(appContext.getPackageName()).append("\n");
+                    status.append("制造商: ").append(Build.MANUFACTURER).append("\n");
+                    status.append("型号: ").append(Build.MODEL).append("\n");
+                    status.append("Android: ").append(Build.VERSION.RELEASE).append("\n");
+                    status.append("鸿蒙系统: ").append(isHarmonyOS() ? "是" : "否").append("\n");
+                    status.append("在白名单: ").append(finalStatus ? "是" : "否").append("\n");
+                    
+                    Log.d(TAG, status.toString());
+                    
+                    // 保存状态日志
+                    SharedPreferences prefs = appContext.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
+                    prefs.edit()
+                        .putString("last_status_log", status.toString())
+                        .putLong("last_status_check", System.currentTimeMillis())
+                        .putBoolean("last_in_whitelist", finalStatus)
+                        .apply();
+                    
+                    if (!finalStatus && appContext instanceof Activity) {
+                        // 如果最终不在白名单中，显示重要警告
+                        final Activity activity = (Activity) appContext;
+                        activity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                showCriticalWarning(activity);
+                            }
+                        });
+                    }
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "最终状态验证错误", e);
                 }
-                
-            } catch (Exception e) {
-                Log.e(TAG, "Error in final status verification", e);
             }
         }).start();
     }
@@ -586,9 +634,9 @@ public class BatteryWhitelistEnforcer {
     /**
      * 显示关键警告
      */
-    private void showCriticalWarning(Activity activity) {
-        SharedPreferences prefs = activity.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
-        int warningCount = prefs.getInt("critical_warning_shown", 0);
+    private void showCriticalWarning(final Activity activity) {
+        final SharedPreferences prefs = activity.getSharedPreferences("aaps_whitelist", Context.MODE_PRIVATE);
+        final int warningCount = prefs.getInt("critical_warning_shown", 0);
         
         if (warningCount < 1) { // 只显示一次
             new AlertDialog.Builder(activity)
@@ -616,12 +664,12 @@ public class BatteryWhitelistEnforcer {
      */
     private void logCurrentStatus() {
         StringBuilder log = new StringBuilder();
-        log.append("=== Starting Whitelist Process ===\n");
-        log.append("App: ").append(appContext.getPackageName()).append("\n");
-        log.append("Device: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\n");
+        log.append("=== 开始白名单处理 ===\n");
+        log.append("应用: ").append(appContext.getPackageName()).append("\n");
+        log.append("设备: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\n");
         log.append("Android: ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\n");
-        log.append("HarmonyOS: ").append(isHarmonyOS()).append("\n");
-        log.append("Initial Whitelist Status: ").append(isInBatteryWhitelistInternal() ? "IN" : "OUT").append("\n");
+        log.append("鸿蒙系统: ").append(isHarmonyOS()).append("\n");
+        log.append("初始白名单状态: ").append(isInBatteryWhitelistInternal() ? "在" : "不在").append("\n");
         
         Log.d(TAG, log.toString());
     }
@@ -631,8 +679,13 @@ public class BatteryWhitelistEnforcer {
      */
     private void showToast(final String message) {
         if (appContext instanceof Activity) {
-            Activity activity = (Activity) appContext;
-            activity.runOnUiThread(() -> Toast.makeText(activity, message, Toast.LENGTH_LONG).show());
+            final Activity activity = (Activity) appContext;
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                }
+            });
         } else {
             // 使用应用上下文显示Toast需要特殊处理
             Toast.makeText(appContext, message, Toast.LENGTH_LONG).show();
@@ -664,7 +717,8 @@ public class BatteryWhitelistEnforcer {
         
         long lastAttempt = prefs.getLong("last_attempt", 0);
         if (lastAttempt > 0) {
-            info.append("最后尝试: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(lastAttempt))).append("\n");
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            info.append("最后尝试: ").append(sdf.format(new Date(lastAttempt))).append("\n");
             info.append("最后结果: ").append(prefs.getBoolean("last_success", false) ? "成功" : "失败").append("\n");
         }
         
@@ -693,18 +747,21 @@ public class BatteryWhitelistEnforcer {
      * 检查并更新白名单状态（供Service等非Activity组件调用）
      */
     public void checkAndUpdateWhitelist() {
-        new Thread(() -> {
-            try {
-                boolean inWhitelist = isInBatteryWhitelistInternal();
-                
-                if (!inWhitelist) {
-                    Log.w(TAG, "App is not in battery whitelist, attempting to add...");
-                    forceWhitelisting();
-                } else {
-                    Log.d(TAG, "App is in battery whitelist - good!");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    boolean inWhitelist = isInBatteryWhitelistInternal();
+                    
+                    if (!inWhitelist) {
+                        Log.w(TAG, "应用不在电池白名单中，尝试添加...");
+                        forceWhitelisting();
+                    } else {
+                        Log.d(TAG, "应用在电池白名单中 - 良好！");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "检查更新白名单错误", e);
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error in checkAndUpdateWhitelist", e);
             }
         }).start();
     }
@@ -714,37 +771,50 @@ public class BatteryWhitelistEnforcer {
      * 使用方式：BatteryWhitelistEnforcer.getInstance(this).simpleForce();
      */
     public void simpleForce() {
-        Log.d(TAG, "Simple force whitelisting called");
+        Log.d(TAG, "简单强制白名单调用");
         
         // 在新线程中执行
-        new Thread(() -> {
-            try {
-                // 快速检查是否已在白名单
-                if (isInBatteryWhitelistInternal()) {
-                    return; // 已经在白名单中，无需操作
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 快速检查是否已在白名单
+                    if (isInBatteryWhitelistInternal()) {
+                        return; // 已经在白名单中，无需操作
+                    }
+                    
+                    // 尝试系统级方法（不显示任何UI）
+                    boolean success = forceSystemWhitelistingViaReflection();
+                    
+                    // 如果不成功且是Activity，显示简单提示
+                    if (!success && appContext instanceof Activity) {
+                        final Activity activity = (Activity) appContext;
+                        activity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                new AlertDialog.Builder(activity)
+                                    .setTitle("电池优化设置")
+                                    .setMessage("AAPS需要后台运行权限以持续监控血糖。请允许忽略电池优化。")
+                                    .setPositiveButton("去设置", (dialog, which) -> {
+                                        openBatteryOptimizationSettings();
+                                    })
+                                    .setNegativeButton("取消", null)
+                                    .show();
+                            }
+                        });
+                    }
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "简单强制白名单错误", e);
                 }
-                
-                // 尝试系统级方法（不显示任何UI）
-                boolean success = forceSystemWhitelistingViaReflection();
-                
-                // 如果不成功且是Activity，显示简单提示
-                if (!success && appContext instanceof Activity) {
-                    Activity activity = (Activity) appContext;
-                    activity.runOnUiThread(() -> {
-                        new AlertDialog.Builder(activity)
-                            .setTitle("电池优化设置")
-                            .setMessage("AAPS需要后台运行权限以持续监控血糖。请允许忽略电池优化。")
-                            .setPositiveButton("去设置", (dialog, which) -> {
-                                openBatteryOptimizationSettings();
-                            })
-                            .setNegativeButton("取消", null)
-                            .show();
-                    });
-                }
-                
-            } catch (Exception e) {
-                Log.e(TAG, "Error in simpleForce", e);
             }
         }).start();
+    }
+    
+    /**
+     * 获取当前白名单状态
+     */
+    public boolean isInBatteryWhitelist() {
+        return isInBatteryWhitelistInternal();
     }
 }
