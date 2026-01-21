@@ -424,7 +424,73 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
                                             UIRunnable { OKDialog.show(this, "", rh.gs(R.string.authorizationfailed), true) { isProtectionCheckActive = false; finish() } }
             )
         }
+
+        // 当Activity回到前台时，检查白名单状态
+        // 可以显示一个温和的提示（如果不在白名单中）
+        checkWhitelistOnResume()
+        
     }
+
+    // ================================================ 
+        /**
+         * 在onResume中检查白名单状态
+         */
+        private fun checkWhitelistOnResume() {
+            // 只在特定条件下检查（比如第一次启动或每24小时）
+            val shouldCheck = shouldCheckWhitelist()
+        
+            if (shouldCheck) {
+                val inWhitelist = BatteryWhitelistEnforcer.silentCheck(this)
+            
+                if (!inWhitelist) {
+                    // 显示一个温和的提示（非弹窗）
+                    showWhitelistReminder()
+                }
+            
+                // 记录检查时间
+                recordWhitelistCheck()
+            }
+        }    
+    
+        /**
+         * 判断是否应该检查白名单
+         */
+        private fun shouldCheckWhitelist(): Boolean {
+            val prefs = getSharedPreferences("aaps_prefs", MODE_PRIVATE)
+            val lastCheck = prefs.getLong("last_whitelist_check", 0)
+            val currentTime = System.currentTimeMillis()
+        
+            // 每24小时检查一次
+            return currentTime - lastCheck > 24 * 60 * 60 * 1000
+        }
+    
+        /**
+         * 记录检查时间
+         */
+        private fun recordWhitelistCheck() {
+            getSharedPreferences("aaps_prefs", MODE_PRIVATE)
+                .edit()
+                .putLong("last_whitelist_check", System.currentTimeMillis())
+                .apply()
+        }
+    
+        /**
+         * 显示白名单提醒（非弹窗方式）
+         */
+        private fun showWhitelistReminder() {
+            // 可以在界面上显示一个提示条或小图标
+            // 这里使用Snackbar作为示例（需要material design库）
+            /*
+            Snackbar.make(
+                findViewById(android.R.id.content),
+                "请设置电池优化以保证后台运行",
+                Snackbar.LENGTH_LONG
+            ).setAction("设置") {
+                BatteryWhitelistEnforcer.smartCall(this)
+            }.show()
+            */
+        }    
+    // ================================================ 
 
     private fun setWakeLock() {
         val keepScreenOn = preferences.get(BooleanKey.OverviewKeepScreenOn)
