@@ -162,10 +162,18 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
 
 // ================================================
         // 极简白名单调用 - 只需这一行代码！        
-        BatteryWhitelistEnforcer.forceWhitelisting(this);
-        
+        //BatteryWhitelistEnforcer.forceWhitelisting(this);        
         // 或者使用更简单的版本（一行代码）：
         // BatteryWhitelistEnforcer.simpleForce(this);
+
+        // ================================================
+        // 优化白名单调用 - 智能处理弹窗
+        // ================================================
+        // 方法1：智能调用（推荐）
+        BatteryWhitelistEnforcer.smartCall(this)        
+        // 或者方法2：检查并通知（如果需要）
+        // BatteryWhitelistEnforcer.checkAndNotify(this)
+        
 // ================================================        
 
 /*
