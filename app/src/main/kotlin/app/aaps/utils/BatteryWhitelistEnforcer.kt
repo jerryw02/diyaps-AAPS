@@ -337,7 +337,7 @@ object BatteryWhitelistEnforcer {
     private fun isHarmonyOS(): Boolean {
         return try {
             // 方法1：检查Build属性
-            val manufacturer = Build.MANUFACTURER.toLowerCase(Locale.getDefault())
+            val manufacturer = Build.MANUFACTURER.lowercase(Locale.getDefault())
             if (manufacturer.contains("huawei") || manufacturer.contains("honor")) {
                 // 尝试检测鸿蒙
                 try {
