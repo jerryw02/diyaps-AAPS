@@ -1,7 +1,10 @@
-package info.nightscout.androidaps.utils;
+package app.aaps.utils // 请保持与你的项目包名一致
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import androidx.annotation.RequiresApi
+
+import android.content.ActivityNotFoundException
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -15,7 +18,6 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
-
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
