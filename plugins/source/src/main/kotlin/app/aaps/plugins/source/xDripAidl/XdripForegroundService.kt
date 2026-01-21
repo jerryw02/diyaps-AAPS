@@ -6,7 +6,7 @@ import android.os.*
 import androidx.core.app.NotificationCompat
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
-import app.aaps.core.main.MainActivity
+import app.aaps.MainActivity
 import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.*
