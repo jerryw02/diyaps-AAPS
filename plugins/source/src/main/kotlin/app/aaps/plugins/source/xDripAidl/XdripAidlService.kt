@@ -837,4 +837,38 @@ class XdripAidlService(
             }
         }
     }
+    
+   // ========== 新增：前台优先级绑定方法 ==========
+    /**
+     * 使用前台服务优先级绑定
+     * 返回：绑定是否成功
+     */
+    fun bindWithForegroundPriority(): Boolean {
+        aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_FOREGROUND_BIND] Attempting foreground priority bind")
+        
+        if (isBound.get() || isConnecting.get()) {
+            return true
+        }
+        
+        return try {
+            val intent = Intent().apply {
+                action = SERVICE_ACTION
+                `package` = XDRIP_PACKAGE
+            }
+            
+            // 使用前台服务绑定标志
+            val flags = Context.BIND_AUTO_CREATE or 
+                      Context.BIND_IMPORTANT or 
+                      Context.BIND_ABOVE_CLIENT
+            
+            val result = context.bindService(intent, serviceConnection, flags)
+            
+            aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_FOREGROUND_BIND_RESULT] Result: $result")
+            result
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.XDRIP, "[${TEST_TAG}_FOREGROUND_BIND_ERROR]", e)
+            false
+        }
+    }
+    // ============================================ 
 }
