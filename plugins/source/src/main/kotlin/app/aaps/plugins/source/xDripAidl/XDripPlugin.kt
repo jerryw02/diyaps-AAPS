@@ -93,6 +93,10 @@ class XDripPlugin @Inject constructor(
 
     override fun advancedFilteringSupported(): Boolean = advancedFiltering
 
+    // ========== 新增：前台服务管理字段 ==========
+    private var isForegroundServiceActive = false
+    // ========================================
+    
     override fun onStart() {
         super.onStart()
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Starting xDrip AIDL plugin")
@@ -101,7 +105,14 @@ class XDripPlugin @Inject constructor(
         // 只要插件被启用，就初始化服务
         if (isEnabled()) {
             aapsLogger.debug(LTag.BGSOURCE, "Plugin is enabled, initializing AIDL service. AAPS 启动或配置更新，尝试连接 xDrip 服务")
-            initializeAidlService()
+            // ========== 关键修改：先启动前台服务 ==========
+            startXdripForegroundService()
+            // ===========================================
+            
+            // 延迟初始化AIDL服务，确保前台服务已启动
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                initializeAidlService()
+            }, 1000)
         } else {
             aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Plugin not fully enabled, skipping initialization")
         }
@@ -110,9 +121,56 @@ class XDripPlugin @Inject constructor(
     override fun onStop() {
         super.onStop()
         aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_STOP] Stopping xDrip AIDL plugin")
+        // ========== 关键修改：停止前台服务 ==========
+        stopXdripForegroundService()
+        // ========================================
         aidlService?.cleanup()
     }
 
+    // ========== 新增：前台服务管理方法 ==========
+    private fun startXdripForegroundService() {
+        val ctx = context ?: return
+        
+        if (isForegroundServiceActive) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_FOREGROUND] Service already active")
+            return
+        }
+        
+        try {
+            XdripForegroundService.startService(ctx)
+            isForegroundServiceActive = true
+            aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_FOREGROUND] Foreground service started")
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_FOREGROUND_ERROR] Failed to start service", e)
+        }
+    }
+    
+    private fun stopXdripForegroundService() {
+        val ctx = context ?: return
+        
+        if (!isForegroundServiceActive) return
+        
+        try {
+            XdripForegroundService.stopService(ctx)
+            isForegroundServiceActive = false
+            aapsLogger.info(LTag.BGSOURCE, "[${TEST_TAG}_FOREGROUND] Foreground service stopped")
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_FOREGROUND_STOP_ERROR]", e)
+        }
+    }
+    
+    private fun updateForegroundNotification(data: com.eveningoutpost.dexdrip.BgData? = null, status: String? = null) {
+        val ctx = context ?: return
+        
+        try {
+            val glucose = data?.glucose
+            XdripForegroundService.updateNotification(ctx, glucose, status)
+        } catch (e: Exception) {
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_NOTIFY_ERROR] Failed to update notification", e)
+        }
+    }
+    // =========================================
+    
     // 添加重试计数器
     private var connectionRetryCount = 0
     private val maxRetryCount = 3
@@ -135,6 +193,9 @@ class XDripPlugin @Inject constructor(
                     processAidlData(data)
                     // 重置重试计数
                     connectionRetryCount = 0
+                    // ========== 新增：更新前台通知 ==========
+                    updateForegroundNotification(data, "数据正常")
+                    // =======================================
                 }
                 
                 override fun onConnectionStateChanged(connected: Boolean) {
@@ -144,6 +205,11 @@ class XDripPlugin @Inject constructor(
                     // ========== 新增：更新插件连接状态 ==========
                     updatePluginConnectionState(connected)
                     // =========================================
+                    
+                    // ========== 新增：更新前台通知状态 ==========
+                    val status = if (connected) "连接正常" else "连接断开"
+                    updateForegroundNotification(status = status)
+                    // ==========================================
                     
                     if (!connected) {
                         // 连接断开，计划重连
@@ -156,12 +222,27 @@ class XDripPlugin @Inject constructor(
                 override fun onError(error: String) {
                     aapsLogger.error(LTag.BGSOURCE,
                         "[${TEST_TAG}_ERROR] AIDL error: $error")
+
+                    // ========== 新增：更新前台通知错误状态 ==========
+                    updateForegroundNotification(status = "连接错误")
+                    // =============================================
+                    
                     scheduleReconnect()
                 }
             })
             
-            // 开始连接
-            connect()
+            // 使用前台服务绑定
+            val bindSuccess = if (isForegroundServiceActive) {
+                aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_BIND] Using foreground service binding")
+                bindWithForegroundPriority()
+            } else {
+                aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_BIND] Using normal binding")
+                connect()
+            }
+            
+            if (!bindSuccess) {
+                scheduleReconnect()
+            }
         }
     }
 
