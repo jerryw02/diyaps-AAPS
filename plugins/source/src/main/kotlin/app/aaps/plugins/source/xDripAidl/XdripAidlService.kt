@@ -40,6 +40,13 @@ class XdripAidlService(
 
         // 测试标记
         private const val TEST_TAG = "XDripAIDL_TEST"
+
+        // ========== 新增：广播相关 ==========
+        const val ACTION_DATA_RECEIVED = "app.aaps.xdrip.DATA_RECEIVED"
+        const val EXTRA_GLUCOSE = "glucose"
+        const val EXTRA_TIMESTAMP = "timestamp"
+        const val EXTRA_TREND = "trend"
+        // ===================================
     }
 
     // ========== 新增：心跳相关字段 ==========
@@ -95,6 +102,12 @@ class XdripAidlService(
             }
             // ==========================================
 
+            if (data != null && !isHeartbeatData(data)) {
+            // ========== 新增：发送广播 ==========
+            broadcastData(data)
+            // =================================
+            }
+            
             // 详细记录接收到的数据
             aapsLogger.debug(LTag.XDRIP,
                 "[${TEST_TAG}_DATA_RECEIVED] New BG data: ${data.glucose} mg/dL (${data.direction}) at ${formatTime(data.timestamp)}")
@@ -142,6 +155,21 @@ class XdripAidlService(
             handleHeartbeat(timestamp)
         }
         // =====================================
+
+        // ========== 新增：广播发送方法 ==========
+        private fun broadcastData(data: BgData) {
+            try {
+                val intent = Intent(ACTION_DATA_RECEIVED).apply {
+                    putExtra(EXTRA_GLUCOSE, data.glucose)
+                    putExtra(EXTRA_TIMESTAMP, data.timestamp)
+                    putExtra(EXTRA_TREND, data.direction ?: "")
+                }
+                context.sendBroadcast(intent)
+                aapsLogger.debug(LTag.XDRIP, "[${TEST_TAG}_BROADCAST] Data broadcast sent")
+            } catch (e: Exception) {
+                aapsLogger.error(LTag.XDRIP, "[${TEST_TAG}_BROADCAST_ERROR] Failed to broadcast data", e)
+            }
+        }
     }
 
     private val serviceConnection = object : ServiceConnection {
