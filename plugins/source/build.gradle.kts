@@ -40,6 +40,15 @@ dependencies {
     implementation(project(":shared:impl"))
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    // 确保包含协程
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
+    // 确保有notification兼容库
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.core:core:1.12.0")
+    
+    // AIDL支持
+    implementation("androidx.appcompat:appcompat:1.6.1")
 
     // Plugin-specific dependencies
     implementation(project(":plugins:aps"))         // ← ActivePluginProvider, etc.
