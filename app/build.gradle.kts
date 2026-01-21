@@ -273,6 +273,11 @@ dependencies {
     api(libs.com.uber.rxdogtag2.rxdogtag)
     // Remote config
     api(libs.com.google.firebase.config)
+
+    // 如果有Kotlin相关依赖，确保版本匹配
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.8.22" // 使用项目现有的版本
+    implementation "org.jetbrains.kotlin:kotlin-reflect:1.8.22" // 添加这个
+
 }
 
 println("-------------------")
