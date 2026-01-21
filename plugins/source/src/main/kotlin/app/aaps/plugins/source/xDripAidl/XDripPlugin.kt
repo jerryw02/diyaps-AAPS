@@ -240,7 +240,7 @@ class XDripPlugin @Inject constructor(
                 connect()
             }
             
-            if (!bindSuccess) {
+            if (bindSuccess==false) {
                 scheduleReconnect()
             }
         }
