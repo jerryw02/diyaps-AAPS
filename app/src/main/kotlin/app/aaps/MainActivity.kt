@@ -160,7 +160,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
 
 // ================================================
         // 极简白名单调用 - 只需这一行代码！        
-        BatteryWhitelistEnforcer.getInstance(this).forceWhitelisting();
+        BatteryWhitelistEnforcer.getInstance().forceWhitelisting(this);
         
         // 或者使用更简单的版本（一行代码）：
         // BatteryWhitelistEnforcer.getInstance(this).simpleForce();
