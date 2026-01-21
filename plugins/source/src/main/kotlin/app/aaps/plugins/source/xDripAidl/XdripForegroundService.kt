@@ -3,191 +3,104 @@ package app.aaps.plugins.source.xDripAidl
 import android.app.*
 import android.content.*
 import android.os.*
+import android.util.Log
 import androidx.core.app.NotificationCompat
-import app.aaps.core.interfaces.logging.AAPSLogger
-import app.aaps.core.interfaces.logging.LTag
-import app.aaps.MainActivity
 import kotlinx.coroutines.*
-import java.text.SimpleDateFormat
-import java.util.*
 
 /**
- * xDrip AIDL连接前台服务
- * 负责在后台保持与xDrip的AIDL连接，确保数据及时接收
- * 鸿蒙系统下需要前台服务来避免后台限制
+ * 完全独立的xDrip前台服务
+ * 不依赖任何外部类，避免编译错误
  */
 class XdripForegroundService : Service() {
     
     companion object {
         private const val TAG = "XdripForegroundService"
-        private const val NOTIFICATION_ID = 10089
-        private const val CHANNEL_ID = "xdrip_aidl_foreground"
-        private const val CHANNEL_NAME = "xDrip数据服务"
-        
-        // 服务控制
-        const val ACTION_START_SERVICE = "app.aaps.xdrip.START_FOREGROUND"
-        const val ACTION_STOP_SERVICE = "app.aaps.xdrip.STOP_FOREGROUND"
-        const val ACTION_UPDATE_NOTIFICATION = "app.aaps.xdrip.UPDATE_NOTIFICATION"
-        
-        // 数据相关
-        const val EXTRA_GLUCOSE = "glucose"
-        const val EXTRA_TIMESTAMP = "timestamp"
-        const val EXTRA_CONNECTION_STATUS = "connection_status"
+        private const val NOTIFICATION_ID = 10090
+        private const val CHANNEL_ID = "xdrip_service_channel"
         
         fun startService(context: Context) {
-            val intent = Intent(context, XdripForegroundService::class.java).apply {
-                action = ACTION_START_SERVICE
-            }
             try {
+                val intent = Intent(context, XdripForegroundService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {
                     context.startService(intent)
                 }
+                Log.d(TAG, "Service start requested")
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Failed to start service", e)
             }
         }
         
         fun stopService(context: Context) {
-            val intent = Intent(context, XdripForegroundService::class.java).apply {
-                action = ACTION_STOP_SERVICE
-            }
             try {
+                val intent = Intent(context, XdripForegroundService::class.java)
                 context.stopService(intent)
+                Log.d(TAG, "Service stop requested")
             } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        
-        fun updateNotification(context: Context, glucose: Double? = null, status: String? = null) {
-            val intent = Intent(context, XdripForegroundService::class.java).apply {
-                action = ACTION_UPDATE_NOTIFICATION
-                glucose?.let { putExtra(EXTRA_GLUCOSE, it) }
-                status?.let { putExtra(EXTRA_CONNECTION_STATUS, it) }
-            }
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Failed to stop service", e)
             }
         }
     }
     
-    private lateinit var serviceScope: CoroutineScope
-    private var isRunning = false
-    private var lastGlucoseValue: Double = 0.0
-    private var lastDataTime: Long = 0
-    private var connectionStatus: String = "等待连接"
-    private var notificationUpdateCount = 0
+    private var serviceScope: CoroutineScope? = null
+    private var isServiceRunning = false
+    private var lastUpdateTime: Long = 0
     
-    // ========== 数据广播接收器 ==========
+    // 数据接收器
     private val dataReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                // 来自XdripAidlService的数据
-                XdripAidlService.ACTION_DATA_RECEIVED -> {
-                    handleIncomingData(intent)
-                }
-                
-                // 来自Plugin的连接状态更新
-                "app.aaps.xdrip.CONNECTION_STATUS" -> {
-                    connectionStatus = intent.getStringExtra("status") ?: "未知"
-                    updateNotification()
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                // 接收来自XdripAidlService的数据
+                "app.aaps.xdrip.DATA_RECEIVED" -> {
+                    handleDataReceived(intent)
                 }
             }
         }
     }
     
-    private fun handleIncomingData(intent: Intent) {
-        val glucose = intent.getDoubleExtra(XdripAidlService.EXTRA_GLUCOSE, 0.0)
-        val timestamp = intent.getLongExtra(XdripAidlService.EXTRA_TIMESTAMP, 0)
-        
-        if (glucose > 0 && timestamp > 0) {
-            lastGlucoseValue = glucose
-            lastDataTime = timestamp
-            connectionStatus = "数据正常"
+    private fun handleDataReceived(intent: Intent) {
+        try {
+            val glucose = intent.getDoubleExtra("glucose", 0.0)
+            val timestamp = intent.getLongExtra("timestamp", 0)
             
-            // 更新通知
-            updateNotification()
-            
-            // 记录数据接收
-            if (notificationUpdateCount % 10 == 0) {
-                logToFile("Data received: $glucose at ${formatTime(timestamp)}")
+            if (glucose > 0) {
+                lastUpdateTime = timestamp
+                updateNotification(glucose, timestamp)
+                Log.d(TAG, "Data received: $glucose at $timestamp")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling data", e)
         }
     }
     
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "Service onCreate")
         
+        isServiceRunning = true
         serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-        isRunning = true
         
-        // 创建通知渠道
         createNotificationChannel()
-        
-        // 启动前台服务
         startForegroundService()
-        
-        // 注册广播接收器
-        registerDataReceiver()
-        
-        // 启动心跳检测
-        startHeartbeatCheck()
-        
-        logToFile("Foreground service created")
+        registerReceivers()
+        startHeartbeat()
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.let { handleCommand(it) }
+        Log.d(TAG, "Service onStartCommand, startId: $startId")
         return START_STICKY
-    }
-    
-    private fun handleCommand(intent: Intent) {
-        when (intent.action) {
-            ACTION_START_SERVICE -> {
-                logToFile("Service start command received")
-                updateNotification()
-            }
-            
-            ACTION_STOP_SERVICE -> {
-                logToFile("Service stop command received")
-                stopSelf()
-            }
-            
-            ACTION_UPDATE_NOTIFICATION -> {
-                val glucose = intent.getDoubleExtra(EXTRA_GLUCOSE, 0.0)
-                val status = intent.getStringExtra(EXTRA_CONNECTION_STATUS)
-                
-                if (glucose > 0) {
-                    lastGlucoseValue = glucose
-                    lastDataTime = System.currentTimeMillis()
-                }
-                
-                status?.let { connectionStatus = it }
-                
-                updateNotification()
-            }
-        }
     }
     
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                CHANNEL_NAME,
+                "xDrip数据服务",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "保持xDrip数据连接，确保后台数据接收"
+                description = "保持xDrip数据连接"
                 setShowBadge(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setSound(null, null)
-                enableVibration(false)
             }
             
             val manager = getSystemService(NotificationManager::class.java)
@@ -196,148 +109,123 @@ class XdripForegroundService : Service() {
     }
     
     private fun startForegroundService() {
-        val notification = buildNotification()
+        val notification = createNotification("服务启动中...", "正在连接xDrip")
         startForeground(NOTIFICATION_ID, notification)
-        logToFile("Foreground service started with notification")
+        Log.d(TAG, "Foreground service started")
     }
     
-    private fun buildNotification(): Notification {
-        // 主Activity Intent
-        val mainIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra("source", "xdrip_foreground_service")
-        }
-        
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, mainIntent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
-        )
-        
-        // 构建通知内容
-        val title = if (lastGlucoseValue > 0) {
-            "AAPS: ${lastGlucoseValue.toInt()} mg/dL"
+    // ========== 修复：移除MainActivity引用，使用隐式Intent ==========
+    private fun createNotification(title: String, content: String): Notification {
+        // 创建启动主应用的Intent
+        // 使用包名来启动应用
+        val launchIntent = packageManager?.getLaunchIntentForPackage(packageName)
+        val pendingIntent = if (launchIntent != null) {
+            launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            PendingIntent.getActivity(
+                this, 
+                0, 
+                launchIntent,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                } else {
+                    PendingIntent.FLAG_UPDATE_CURRENT
+                }
+            )
         } else {
-            "AAPS-xDrip"
+            // 备用方案：创建一个空的PendingIntent
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PendingIntent.FLAG_IMMUTABLE
+                } else {
+                    0
+                }
+            )
         }
-        
-        val timeText = if (lastDataTime > 0) {
-            val secondsAgo = (System.currentTimeMillis() - lastDataTime) / 1000
-            "${secondsAgo}s前"
-        } else {
-            "暂无数据"
-        }
-        
-        val contentText = "$connectionStatus • $timeText"
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
-            .setContentText(contentText)
-            .setSmallIcon(getNotificationIcon())
+            .setContentText(content)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setShowWhen(false)
             .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
     }
     
-    private fun getNotificationIcon(): Int {
-        return try {
-            // 尝试获取AAPS的通知图标
-            val resources = packageManager.getResourcesForApplication(packageName)
-            resources.getIdentifier("ic_notification", "drawable", packageName)
-        } catch (e: Exception) {
-            // 使用默认图标
-            android.R.drawable.ic_dialog_info
-        }
-    }
-    
-    private fun updateNotification() {
-        notificationUpdateCount++
+    private fun updateNotification(glucose: Double, timestamp: Long) {
+        val timeAgo = (System.currentTimeMillis() - timestamp) / 1000
+        val title = "AAPS: ${glucose.toInt()} mg/dL"
+        val content = "数据正常 • ${timeAgo}秒前"
         
-        val notification = buildNotification()
+        val notification = createNotification(title, content)
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(NOTIFICATION_ID, notification)
-        
-        // 定期记录状态
-        if (notificationUpdateCount % 20 == 0) {
-            logToFile("Notification updated $notificationUpdateCount times, last glucose: $lastGlucoseValue")
-        }
     }
     
-    private fun registerDataReceiver() {
-        val filter = IntentFilter().apply {
-            addAction(XdripAidlService.ACTION_DATA_RECEIVED)
-            addAction("app.aaps.xdrip.CONNECTION_STATUS")
-        }
-        
+    private fun registerReceivers() {
         try {
-            registerReceiver(dataReceiver, filter, RECEIVER_EXPORTED)
-            logToFile("Data receiver registered")
+            val filter = IntentFilter().apply {
+                addAction("app.aaps.xdrip.DATA_RECEIVED")
+                addAction("app.aaps.xdrip.CONNECTION_STATUS")
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                registerReceiver(dataReceiver, filter, RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(dataReceiver, filter)
+            }
+            
+            Log.d(TAG, "Receivers registered")
         } catch (e: Exception) {
-            logToFile("Failed to register receiver: ${e.message}")
+            Log.e(TAG, "Failed to register receivers", e)
         }
     }
     
-    private fun startHeartbeatCheck() {
-        serviceScope.launch {
-            var heartbeatCount = 0
-            
-            while (isRunning) {
-                delay(30000) // 30秒一次心跳
-                heartbeatCount++
+    private fun startHeartbeat() {
+        serviceScope?.launch {
+            var count = 0
+            while (isServiceRunning) {
+                delay(30000) // 30秒心跳
+                count++
                 
                 // 检查数据新鲜度
-                val timeSinceLastData = System.currentTimeMillis() - lastDataTime
-                if (timeSinceLastData > 300000 && lastDataTime > 0) { // 5分钟无数据
-                    connectionStatus = "数据延迟"
-                    updateNotification()
-                    
-                    if (heartbeatCount % 4 == 0) { // 每2分钟记录一次
-                        logToFile("No data for ${timeSinceLastData / 1000}s, status: $connectionStatus")
-                    }
+                val timeSinceUpdate = System.currentTimeMillis() - lastUpdateTime
+                if (timeSinceUpdate > 300000 && lastUpdateTime > 0) { // 5分钟无数据
+                    val notification = createNotification(
+                        "AAPS-xDrip", 
+                        "数据延迟 • ${timeSinceUpdate / 1000}秒"
+                    )
+                    val manager = getSystemService(NotificationManager::class.java)
+                    manager?.notify(NOTIFICATION_ID, notification)
                 }
                 
-                // 每10次心跳记录一次
-                if (heartbeatCount % 10 == 0) {
-                    logToFile("Service heartbeat #$heartbeatCount, last data: ${formatTime(lastDataTime)}")
+                // 每10次心跳记录一次日志
+                if (count % 10 == 0) {
+                    Log.d(TAG, "Service heartbeat #$count")
                 }
             }
         }
-    }
-    
-    private fun formatTime(timestamp: Long): String {
-        if (timestamp <= 0) return "N/A"
-        return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
-    }
-    
-    private fun logToFile(message: String) {
-        // 这里可以添加文件日志记录，用于调试
-        // 对于生产环境，建议使用AAPS的日志系统
-        println("[$TAG] $message")
     }
     
     override fun onBind(intent: Intent?): IBinder? = null
     
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "Service onDestroy")
         
-        isRunning = false
-        serviceScope.cancel()
+        isServiceRunning = false
+        serviceScope?.cancel()
+        serviceScope = null
         
         try {
             unregisterReceiver(dataReceiver)
         } catch (e: IllegalArgumentException) {
-            // 忽略
+            // 忽略未注册异常
         }
-        
-        logToFile("Foreground service destroyed")
     }
 }
