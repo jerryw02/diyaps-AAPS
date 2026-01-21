@@ -118,7 +118,8 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
     private lateinit var binding: ActivityMainBinding
     private var mainMenuProvider: MenuProvider? = null
 
-/////////////////////////////////////////////
+/*
+////////////////////////////////////////////
     
     companion object {
         private const val REQUEST_CODE_BATTERY_OPTIMIZATION = 1001 // 必须与工具类中的请求码一致
@@ -141,7 +142,8 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
             }
         }
     }
-/////////////////////////////////////////////    
+////////////////////////////////////////////
+*/    
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -163,10 +165,11 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         BatteryWhitelistEnforcer.forceWhitelisting(this);
         
         // 或者使用更简单的版本（一行代码）：
-        // BatteryWhitelistEnforcer.getInstance(this).simpleForce();
+        // BatteryWhitelistEnforcer.simpleForce(this);
 // ================================================        
 
-/////////////////////////////////////////////
+/*
+////////////////////////////////////////////
 
         Handler(Looper.getMainLooper()).postDelayed({
             // 传递字符串，而非资源ID，彻底避免R引用问题
@@ -179,7 +182,8 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
             )
         }, 1500)
 
-/////////////////////////////////////////////
+////////////////////////////////////////////
+*/
         
         // initialize screen wake lock
         processPreferenceChange(EventPreferenceChange(BooleanKey.OverviewKeepScreenOn.key))
