@@ -1,3 +1,4 @@
+//在增加电池优化白名单基础上继续绑定前台服务，但是验证效果刚开始还好，后来运行一段时间程序反应很慢
 package app.aaps.plugins.source.xDripAidl
 
 import app.aaps.plugins.source.xDripAidl.XdripForegroundService
