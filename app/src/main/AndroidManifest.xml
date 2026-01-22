@@ -67,6 +67,18 @@
                 <action android:name="app.aaps.xdrip.UPDATE_NOTIFICATION" />
             </intent-filter>
         </service>
+
+        <!-- 添加鸿蒙后台服务 -->
+        <service
+            android:name=".utils.HarmonyForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        
+        <service
+            android:name=".utils.HarmonyHeartbeatService"
+            android:enabled="true"
+            android:exported="false" />
         
         <meta-data
             android:name="com.google.android.gms.version"
