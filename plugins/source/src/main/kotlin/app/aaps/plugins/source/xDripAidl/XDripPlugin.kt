@@ -197,6 +197,13 @@ class XDripPlugin @Inject constructor(
                     // ========== 新增：更新前台通知 ==========
                     updateForegroundNotification(data, "数据正常")
                     // =======================================
+
+                    // ========== 修复：移除 updateForegroundNotification 调用 ==========
+                    // 原代码：updateForegroundNotification(data, "数据正常")
+                    // 改为发送广播
+                    sendDataToForegroundService(data)
+                    sendConnectionStatus("数据正常")
+                    // ================================================================
                 }
                 
                 override fun onConnectionStateChanged(connected: Boolean) {
@@ -211,6 +218,11 @@ class XDripPlugin @Inject constructor(
                     val status = if (connected) "连接正常" else "连接断开"
                     updateForegroundNotification(status = status)
                     // ==========================================
+
+                    // ========== 修复：移除 updateForegroundNotification 调用 ==========
+                    val status = if (connected) "连接正常" else "连接断开"
+                    sendConnectionStatus(status)
+                    // ================================================================
                     
                     if (!connected) {
                         // 连接断开，计划重连
@@ -227,6 +239,10 @@ class XDripPlugin @Inject constructor(
                     // ========== 新增：更新前台通知错误状态 ==========
                     updateForegroundNotification(status = "连接错误")
                     // =============================================
+
+                    // ========== 修复：移除 updateForegroundNotification 调用 ==========
+                    sendConnectionStatus("连接错误")
+                    // ================================================================
                     
                     scheduleReconnect()
                 }
@@ -246,6 +262,22 @@ class XDripPlugin @Inject constructor(
             }
         }
     }
+
+    // ========== 新增：发送连接状态的方法 ==========
+    private fun sendConnectionStatus(status: String) {
+        val ctx = context ?: return
+    
+        try {
+            val intent = Intent("app.aaps.xdrip.CONNECTION_STATUS").apply {
+                putExtra("status", status)
+            }
+            ctx.sendBroadcast(intent)
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_STATUS] Connection status: $status")
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_STATUS_ERROR]", e)
+        }
+    }
+    // ============================================
 
     // 添加重连方法
     private fun scheduleReconnect() {
@@ -298,10 +330,35 @@ class XDripPlugin @Inject constructor(
         lastGlucoseValue = bgData.glucose
         lastProcessedTime = System.currentTimeMillis()
 
+        // ========== 修复第167行错误：移除 updateNotification 调用 ==========
+        // 原代码可能有：updateNotification(bgData) 或类似调用
+        // 改为发送广播给前台服务
+        sendDataToForegroundService(bgData)
+        // =================================================================
+
         aapsLogger.info(LTag.BGSOURCE,
             "[${TEST_TAG}_PROCESSED_${processId}] Processed xDrip AIDL data: " +
             "${bgData.glucose} mg/dL (${bgData.direction})")
     }
+
+    // ========== 新增：发送数据给前台服务的方法 ==========
+    private fun sendDataToForegroundService(data: com.eveningoutpost.dexdrip.BgData) {
+        val ctx = context ?: return
+    
+        try {
+            val intent = Intent("app.aaps.xdrip.DATA_RECEIVED").apply {
+                putExtra("glucose", data.glucose)
+                putExtra("timestamp", data.timestamp)
+                putExtra("direction", data.direction ?: "")
+                putExtra("source", data.source ?: "xDrip_AIDL")
+            }
+            ctx.sendBroadcast(intent)
+            aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_FORWARD] Data sent to foreground service")
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_FORWARD_ERROR]", e)
+        }
+    }
+    // ================================================
 
     // ========== 新增：严格的心跳数据检查 ==========
     private fun isHeartbeatDataStrict(data: com.eveningoutpost.dexdrip.BgData): Boolean {
