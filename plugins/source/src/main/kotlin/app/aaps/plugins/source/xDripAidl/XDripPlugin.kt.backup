@@ -1,3 +1,5 @@
+//增加电池优化白名单前版本，可实现AIDL，但是AAPS主界面更新很慢
+
 package app.aaps.plugins.source.xDripAidl
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
