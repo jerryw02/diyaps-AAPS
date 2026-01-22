@@ -9,7 +9,15 @@ import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable�
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 
+// ========== 确保有以下导入 ==========
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+// ==================================
+
 import android.os.Bundle  // 保留，可能用于其他用途
 import app.aaps.core.data.plugin.PluginType
 import app.aaps.core.interfaces.logging.AAPSLogger
@@ -215,8 +223,8 @@ class XDripPlugin @Inject constructor(
                     // =========================================
                     
                     // ========== 新增：更新前台通知状态 ==========
-                    val status = if (connected) "连接正常" else "连接断开"
-                    updateForegroundNotification(status = status)
+                    val connectionStatus = if (connected) "连接正常" else "连接断开"
+                    updateForegroundNotification(status = connectionStatus)
                     // ==========================================
 
                     // ========== 修复：移除 updateForegroundNotification 调用 ==========
