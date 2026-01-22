@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 //import app.aaps.utils.BatteryOptimizationUtil
 import app.aaps.utils.BatteryWhitelistEnforcer
+import app.aaps.utils.HarmonyBackgroundManager
 
 import android.content.Context
 import android.content.Intent
@@ -170,11 +171,13 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         // 优化白名单调用 - 智能处理弹窗
         // ================================================
         // 方法1：智能调用（推荐）
-        BatteryWhitelistEnforcer.smartCall(this)        
+        //BatteryWhitelistEnforcer.smartCall(this)        
         // 或者方法2：检查并通知（如果需要）
         // BatteryWhitelistEnforcer.checkAndNotify(this)
         
-// ================================================        
+// ================================================
+        HarmonyBackgroundManager.initHarmonyBackground(this)
+// ================================================
 
 /*
 ////////////////////////////////////////////
