@@ -260,7 +260,6 @@ dependencies {
 
     debugImplementation(libs.com.squareup.leakcanary.android)
 
-
     kspAndroidTest(libs.com.google.dagger.android.processor)
 
     /* Dagger2 - We are going to use dagger.android which includes
@@ -278,6 +277,10 @@ dependencies {
     implementation(kotlin("stdlib", version = "1.8.22"))    
     // Kotlin反射库（用于解决KSP问题）
     implementation(kotlin("reflect", version = "1.8.22"))
+
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
 }
 
