@@ -1,5 +1,6 @@
 package app.aaps.plugins.source.xDripAidl
 
+import app.aaps.plugins.source.xDripAidl.XdripForegroundService
 import com.eveningoutpost.dexdrip.IBgDataCallback
 import com.eveningoutpost.dexdrip.IBgDataService
 import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
