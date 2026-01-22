@@ -165,7 +165,7 @@ class XDripPlugin @Inject constructor(
         
         try {
             val glucose = data?.glucose
-            XdripForegroundService.updateNotification(ctx, glucose, status)
+            updateNotification(ctx, glucose, status)
         } catch (e: Exception) {
             aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_NOTIFY_ERROR] Failed to update notification", e)
         }
