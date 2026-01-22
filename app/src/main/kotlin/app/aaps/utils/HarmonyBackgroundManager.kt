@@ -1,9 +1,12 @@
-package app.aaps.plugins.source.xDripAidl
+package app.aaps.utils
 
 import android.app.*
 import android.content.*
+import android.net.Uri
 import android.os.*
+import android.provider.Settings
 import android.util.Log
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.NotificationCompat
 
 /**
@@ -280,7 +283,7 @@ object HarmonyBackgroundManager {
         try {
             // 鸿蒙自启动设置
             val autoStartIntent = Intent().apply {
-                action = "android.settings.APPLICATION_DETAILS_SETTINGS"
+                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
                 data = Uri.parse("package:${context.packageName}")
                 putExtra("from", "autostart")
             }
@@ -299,7 +302,7 @@ object HarmonyBackgroundManager {
         try {
             // 鸿蒙电池优化设置
             val batteryIntent = Intent().apply {
-                action = "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+                action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
                 data = Uri.parse("package:${context.packageName}")
             }
             
