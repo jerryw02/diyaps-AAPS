@@ -2,7 +2,7 @@
 
 package app.aaps.plugins.source.xDripAidl
 
-import app.aaps.utils.HarmonyBackgroundManager
+//import app.aaps.utils.HarmonyBackgroundManager
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
 import com.eveningoutpost.dexdrip.IBgDataService
@@ -112,7 +112,7 @@ class XDripPlugin @Inject constructor(
 
         // =====================================
         // 启动鸿蒙后台保活
-        HarmonyBackgroundManager.initHarmonyBackground(context ?: return)
+        //HarmonyBackgroundManager.initHarmonyBackground(context ?: return)
         // =====================================
     }
 
