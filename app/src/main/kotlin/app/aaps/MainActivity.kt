@@ -176,6 +176,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         // BatteryWhitelistEnforcer.checkAndNotify(this)
         
 // ================================================
+// 初始化鸿蒙后台保活
         HarmonyBackgroundManager.initHarmonyBackground(this)
 // ================================================
 
