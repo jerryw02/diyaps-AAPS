@@ -1,3 +1,5 @@
+//增加电池优化白名单
+
 package app.aaps.plugins.source.xDripAidl
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
