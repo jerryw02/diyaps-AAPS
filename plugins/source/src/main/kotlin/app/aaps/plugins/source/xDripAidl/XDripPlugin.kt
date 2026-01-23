@@ -4,11 +4,16 @@ package app.aaps.plugins.source.xDripAidl
 // ========== 新增导入：RxBus 相关 ==========
 import app.aaps.core.interfaces.rx.events.EventNewBG
 import app.aaps.core.interfaces.rx.bus.RxBus
-import app.aaps.core.data.BgReading
+
 import app.aaps.core.data.model.GV
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.schedulers.Schedulers
+
+import app.aaps.core.data.model.SourceSensor
+import app.aaps.core.data.model.TrendArrow
+import app.aaps.core.interfaces.db.PersistenceLayer
+import app.aaps.core.data.ue.Sources
 // ========================================
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
@@ -53,8 +58,13 @@ class XDripPlugin @Inject constructor(
     rh: ResourceHelper,
     private val sp: SP,  // 改为构造函数参数
     // ========== 新增：注入 RxBus ==========
-    private val rxBus: RxBus
+    private val rxBus: RxBus,
     // ===================================
+    // ========== 新增注入 ==========
+    private val persistenceLayer: PersistenceLayer,
+    private val dateUtil: DateUtil
+    // =============================
+    
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
         .mainType(PluginType.BGSOURCE) // 数据源类型
@@ -406,24 +416,41 @@ class XDripPlugin @Inject constructor(
  * 优势：绕过广播机制，避免鸿蒙系统对广播的延迟/限制
  */
 private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
-    
-    // 1. 构造 AAPS v3+ 的 BgReading对象
-    val bgReading = BgReading(
-        value = bgData.glucose.toInt(),
-        date = bgData.timestamp,
-        rawData = bgData.glucose,
-        filtered = if (bgData.filtered > 0) bgData.filtered else bgData.glucose,
-        unfiltered = if (bgData.unfiltered > 0) bgData.unfiltered else bgData.glucose,
-        noise = mapNoiseLevel(bgData.noise),
-        direction = mapDirection(bgData.direction),
-        sourceSensor = "xDrip_AIDL",
-        sensorBattery = if (bgData.sensorBatteryLevel >= 0) bgData.sensorBatteryLevel.toByte() else -1
+    // 1. 验证时间有效性（防止未来或过旧数据）
+    val now = dateUtil.now()
+    if (bgData.timestamp > now || bgData.timestamp < now - T.hours(24).msecs()) {
+        aapsLogger.warn(LTag.BGSOURCE, "[ $ {TEST_TAG}] Ignored invalid timestamp:  $ {bgData.timestamp}")
+        return
+    }
+
+    // 2. 构造 GV（Glucose Value）
+    val gv = GV(
+        timestamp = bgData.timestamp,
+        value = bgData.glucose,
+        noise = mapNoiseLevel(bgData.noise), // 注意：GV.noise 是 Int?
+        raw = bgData.rawData,                // Double?
+        trendArrow = TrendArrow.fromString(bgData.direction ?: "NOT_COMPUTABLE"),
+        sourceSensor = SourceSensor.XDRIP_AIDL // 你需要定义这个，或用 UNKNOWN
     )
 
-    // 2. 发送到 RxBus（AAPS v3+ 支持直接调用，线程安全由内部处理）
-    rxBus.send(EventNewBG(bgReading))
+    // 3. 异步写入数据库（必须在后台线程）
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            persistenceLayer.insertCgmSourceData(
+                source = Sources.XDripAidl,   // 你需要定义 Sources.XDripAidl
+                glucoseValues = listOf(gv),
+                calibrations = emptyList(),
+                sensorStartTime = null
+            ).blockingGet() // 等待完成
 
-    aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}_RxBUS] Sent EventNewBG:  $ {bgReading.value} mg/dL at  $ {formatTime(bgReading.date)}")
+            // 4. 发送通知事件（触发 UI 刷新）
+            rxBus.send(EventNewBG(bgData.timestamp))
+
+            aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}] Inserted GV:  $ {gv.value} at  $ {formatTime(gv.timestamp)}")
+        } catch (e: Exception) {
+            aapsLogger.error(LTag.BGSOURCE, "[ $ {TEST_TAG}] Failed to insert GV", e)
+        }
+    }
 }
 // ==============================================================
 // ========== 辅助函数：映射 xDrip 方向到 AAPS 枚举 ==========
