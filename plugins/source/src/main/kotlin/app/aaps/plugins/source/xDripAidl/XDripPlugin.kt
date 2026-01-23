@@ -418,7 +418,7 @@ class XDripPlugin @Inject constructor(
 private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
     // 1. 验证时间有效性（防止未来或过旧数据）
     val now = System.currentTimeMillis()
-    if (bgData.timestamp > now || bgData.timestamp < now - * 60 * 60 * 1000) {
+    if (bgData.timestamp > now || bgData.timestamp < now - 60 * 60 * 1000) {
         aapsLogger.warn(LTag.BGSOURCE, "[ $ {TEST_TAG}] Ignored invalid timestamp:  $ {bgData.timestamp}")
         return
     }
@@ -439,7 +439,7 @@ private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
         try {
             // 注意：按顺序传参！caller 是第一个参数（String）
             persistenceLayer.insertCgmSourceData(
-                "xDrip_AIDL",       // caller: String
+                "xDrip",       // caller: String
                 listOf(gv),         // glucoseValues: List<GV>
                 emptyList(),        // calibrations: List<Calibration>
                 null                // sensorInsertionTime: Long?
