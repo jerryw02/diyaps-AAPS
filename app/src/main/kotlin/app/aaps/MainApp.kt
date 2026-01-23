@@ -1,5 +1,6 @@
 package app.aaps
 
+import app.aaps.utils.BatteryOptimizationUtil
 import app.aaps.utils.BatteryWhitelistEnforcer
 import app.aaps.utils.HarmonyBackgroundManager
 
@@ -136,15 +137,15 @@ class MainApp : DaggerApplication() {
         // 优化白名单调用 - 智能处理弹窗
         // ================================================
         // 方法1：智能调用（推荐）
-        BatteryWhitelistEnforcer.smartCall(this)        
+        // BatteryWhitelistEnforcer.smartCall(this)        
         // 或者方法2：检查并通知（如果需要）
         // BatteryWhitelistEnforcer.checkAndNotify(this)
         
-// ================================================
-// 初始化鸿蒙后台保活
+        // ================================================
+        // 初始化鸿蒙后台保活
         HarmonyBackgroundManager.initHarmonyBackground(this)
+        
 // ================================================
-
 /////////////////
         
         // Do necessary migrations
