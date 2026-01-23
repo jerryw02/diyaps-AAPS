@@ -4,7 +4,7 @@ package app.aaps.plugins.source.xDripAidl
 // ========== 新增导入：RxBus 相关 ==========
 import app.aaps.core.interfaces.rx.events.EventNewBG
 import app.aaps.core.interfaces.rx.bus.RxBus
-//import info.android15.nucleus.data.BgReading
+import app.aaps.core.data.BgReading
 import app.aaps.core.data.model.GV
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Observable
@@ -51,7 +51,10 @@ class XDripPlugin @Inject constructor(
     injector: HasAndroidInjector,
     aapsLogger: AAPSLogger,
     rh: ResourceHelper,
-    private val sp: SP  // 改为构造函数参数
+    private val sp: SP,  // 改为构造函数参数
+    // ========== 新增：注入 RxBus ==========
+    private val rxBus: RxBus
+    // ===================================
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
     PluginDescription()
         .mainType(PluginType.BGSOURCE) // 数据源类型
@@ -403,64 +406,53 @@ class XDripPlugin @Inject constructor(
  * 优势：绕过广播机制，避免鸿蒙系统对广播的延迟/限制
  */
 private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
-    // 1. 构造 BgReading 对象（AAPS 标准血糖数据结构）
-    val bgReading = BgReading().apply {
-        value = bgData.glucose.toInt() // AAPS 内部用 Int 存储 mg/dL
-        date = bgData.timestamp // 必须是毫秒时间戳
-        rawData = bgData.glucose.toDouble()
-        filtered_data = if (bgData.filtered > 0) bgData.filtered.toDouble() else rawData
-        unfiltered_data = if (bgData.unfiltered > 0) bgData.unfiltered.toDouble() else rawData
+    
+    // 1. 构造 AAPS v3+ 的 BgReading对象
+    val bgReading = BgReading(
+        value = bgData.glucose.toInt(),
+        date = bgData.timestamp,
+        rawData = bgData.glucose,
+        filtered = if (bgData.filtered > 0) bgData.filtered else bgData.glucose,
+        unfiltered = if (bgData.unfiltered > 0) bgData.unfiltered else bgData.glucose,
+        noise = mapNoiseLevel(bgData.noise),
+        direction = mapDirection(bgData.direction),
+        sourceSensor = "xDrip_AIDL",
+        sensorBattery = if (bgData.sensorBatteryLevel >= 0) bgData.sensorBatteryLevel.toByte() else -1
+    )
 
-        // 设置来源标识（便于调试和区分数据源）
-        sourceSensor = "xDrip_AIDL"
+    // 2. 发送到 RxBus（AAPS v3+ 支持直接调用，线程安全由内部处理）
+    rxBus.send(EventNewBG(bgReading))
 
-        // 方向（趋势）
-        direction = when (bgData.direction?.lowercase()) {
-            "doubleup" -> BgReading.DIRECTION_DOUBLE_UP
-            "singleup" -> BgReading.DIRECTION_SINGLE_UP
-            "fortyfiveup" -> BgReading.DIRECTION_FORTY_FIVE_UP
-            "flat" -> BgReading.DIRECTION_FLAT
-            "fortyfivedown" -> BgReading.DIRECTION_FORTY_FIVE_DOWN
-            "singledown" -> BgReading.DIRECTION_SINGLE_DOWN
-            "doubledown" -> BgReading.DIRECTION_DOUBLE_DOWN
-            else -> BgReading.DIRECTION_NOT_COMPUTED
-        }
-
-        // 噪声级别（可选映射）
-        noise = when {
-            bgData.noise.isNullOrBlank() -> 0
-            bgData.noise.contains("Clean", ignoreCase = true) -> 0
-            bgData.noise.contains("Light", ignoreCase = true) -> 1
-            bgData.noise.contains("Medium", ignoreCase = true) -> 2
-            bgData.noise.contains("Heavy", ignoreCase = true) -> 3
-            bgData.noise.contains("Loss", ignoreCase = true) -> 4
-            else -> 0
-        }
-
-        // 电池电量
-        if (bgData.sensorBatteryLevel >= 0) {
-            sensorBattery = bgData.sensorBatteryLevel.toByte()
-        }
-
-        // 其他字段可按需扩展
-    }
-
-    // 2. 发送到 RxBus（必须在主线程或适当调度器）
-    // 使用 RxJava 切换线程，确保线程安全
-    Observable.just(bgReading)
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(
-            { reading ->
-                RxBus.INSTANCE.send(EventNewBG(reading))
-                aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}_RxBUS] Sent EventNewBG:  $ {reading.value} mg/dL at  $ {formatTime(reading.date)}")
-            },
-            { error ->
-                aapsLogger.error(LTag.BGSOURCE, "[ $ {TEST_TAG}_RxBUS_ERROR] Failed to send to RxBus", error)
-            }
-        )
+    aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}_RxBUS] Sent EventNewBG:  $ {bgReading.value} mg/dL at  $ {formatTime(bgReading.date)}")
 }
 // ==============================================================
+// ========== 辅助函数：映射 xDrip 方向到 AAPS 枚举 ==========
+private fun mapDirection(direction: String?): BgReading.Direction {
+    return when (direction?.lowercase()) {
+        "doubleup" -> BgReading.Direction.DoubleUp
+        "singleup" -> BgReading.Direction.SingleUp
+        "fortyfiveup" -> BgReading.Direction.FortyFiveUp
+        "flat" -> BgReading.Direction.Flat
+        "fortyfivedown" -> BgReading.Direction.FortyFiveDown
+        "singledown" -> BgReading.Direction.SingleDown
+        "doubledown" -> BgReading.Direction.DoubleDown
+        else -> BgReading.Direction.NotComputable
+    }
+}
+
+// ========== 辅助函数：映射噪声级别 ==========
+private fun mapNoiseLevel(noise: String?): Int {
+    return when {
+        noise.isNullOrBlank() -> 0
+        noise.contains("Clean", ignoreCase = true) -> 0
+        noise.contains("Light", ignoreCase = true) -> 1
+        noise.contains("Medium", ignoreCase = true) -> 2
+        noise.contains("Heavy", ignoreCase = true) -> 3
+        noise.contains("Loss", ignoreCase = true) -> 4
+        else -> 0
+    }
+}
+// ==================================================
 ////////////////////////////////////////
     
     
