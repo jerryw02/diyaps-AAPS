@@ -3,7 +3,7 @@ package app.aaps
 import android.os.Handler
 import android.os.Looper
 import app.aaps.utils.BatteryOptimizationUtil
-//import app.aaps.utils.BatteryWhitelistEnforcer
+import app.aaps.utils.BatteryWhitelistEnforcer
 import app.aaps.utils.HarmonyBackgroundManager
 
 import android.content.Context
