@@ -62,8 +62,7 @@ class XDripPlugin @Inject constructor(
     private val rxBus: RxBus,
     // ===================================
     // ========== 新增注入 ==========
-    private val persistenceLayer: PersistenceLayer,
-    private val dateUtil: DateUtil
+    private val persistenceLayer: PersistenceLayer
     // =============================
     
 ) : AbstractBgSourceWithSensorInsertLogPlugin(
@@ -89,8 +88,8 @@ class XDripPlugin @Inject constructor(
     @set:Inject
     var context: Context? = null
 
-    @set:Inject
-    var dateUtil: DateUtil? = null
+    //@set:Inject
+    //var dateUtil: DateUtil? = null
 
     @set:Inject
     var dataWorkerStorage: DataWorkerStorage? = null
@@ -418,8 +417,8 @@ class XDripPlugin @Inject constructor(
  */
 private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
     // 1. 验证时间有效性（防止未来或过旧数据）
-    val now = dateUtil.now()
-    if (bgData.timestamp > now || bgData.timestamp < now - T.hours(24).msecs()) {
+    val now = System.currentTimeMillis()
+    if (bgData.timestamp > now || bgData.timestamp < now - * 60 * 60 * 1000) {
         aapsLogger.warn(LTag.BGSOURCE, "[ $ {TEST_TAG}] Ignored invalid timestamp:  $ {bgData.timestamp}")
         return
     }
@@ -428,20 +427,22 @@ private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
     val gv = GV(
         timestamp = bgData.timestamp,
         value = bgData.glucose,
-        noise = mapNoiseLevel(bgData.noise), // 注意：GV.noise 是 Int?
-        raw = bgData.rawData,                // Double?
+        raw = if (bgData.rawData != 0.0) bgData.rawData else null,
         trendArrow = TrendArrow.fromString(bgData.direction ?: "NOT_COMPUTABLE"),
-        sourceSensor = SourceSensor.XDRIP_AIDL // 你需要定义这个，或用 UNKNOWN
+        noise = mapNoiseToDouble(bgData.noise), // ← 关键：转为 Double?
+        sourceSensor = SourceSensor.UNKNOWN     // 安全默认值
+        // 其他字段（id, version 等）由数据库自动生成，无需设置
     )
 
     // 3. 异步写入数据库（必须在后台线程）
     CoroutineScope(Dispatchers.IO).launch {
         try {
+            // 注意：按顺序传参！caller 是第一个参数（String）
             persistenceLayer.insertCgmSourceData(
-                source = Sources.XDripAidl,   // 你需要定义 Sources.XDripAidl
-                glucoseValues = listOf(gv),
-                calibrations = emptyList(),
-                sensorStartTime = null
+                "xDrip_AIDL",       // caller: String
+                listOf(gv),         // glucoseValues: List<GV>
+                emptyList(),        // calibrations: List<Calibration>
+                null                // sensorInsertionTime: Long?
             ).blockingGet() // 等待完成
 
             // 4. 发送通知事件（触发 UI 刷新）
@@ -454,17 +455,16 @@ private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
     }
 }
 // ==============================================================
-// ========== 辅助函数：映射 xDrip 方向到 AAPS 枚举 ==========
-private fun mapDirection(direction: String?): BgReading.Direction {
-    return when (direction?.lowercase()) {
-        "doubleup" -> BgReading.Direction.DoubleUp
-        "singleup" -> BgReading.Direction.SingleUp
-        "fortyfiveup" -> BgReading.Direction.FortyFiveUp
-        "flat" -> BgReading.Direction.Flat
-        "fortyfivedown" -> BgReading.Direction.FortyFiveDown
-        "singledown" -> BgReading.Direction.SingleDown
-        "doubledown" -> BgReading.Direction.DoubleDown
-        else -> BgReading.Direction.NotComputable
+
+private fun mapNoiseToDouble(noise: String?): Double? {
+    return when {
+        noise.isNullOrBlank() -> null
+        noise.contains("Clean", ignoreCase = true) -> 0.0
+        noise.contains("Light", ignoreCase = true) -> 1.0
+        noise.contains("Medium", ignoreCase = true) -> 2.0
+        noise.contains("Heavy", ignoreCase = true) -> 3.0
+        noise.contains("Loss", ignoreCase = true) -> 4.0
+        else -> null
     }
 }
 
