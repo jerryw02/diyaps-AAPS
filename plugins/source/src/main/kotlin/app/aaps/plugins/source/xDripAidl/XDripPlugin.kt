@@ -23,6 +23,7 @@ import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable�
 // 第61行修复（需要确保依赖已添加）
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 import android.content.Context
 import android.os.Bundle  // 保留，可能用于其他用途
