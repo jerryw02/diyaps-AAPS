@@ -2,8 +2,8 @@ package app.aaps
 
 import android.os.Handler
 import android.os.Looper
-//import app.aaps.utils.BatteryOptimizationUtil
-import app.aaps.utils.BatteryWhitelistEnforcer
+import app.aaps.utils.BatteryOptimizationUtil
+//import app.aaps.utils.BatteryWhitelistEnforcer
 import app.aaps.utils.HarmonyBackgroundManager
 
 import android.content.Context
@@ -119,8 +119,9 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
     private lateinit var binding: ActivityMainBinding
     private var mainMenuProvider: MenuProvider? = null
 
-/*
+
 ////////////////////////////////////////////
+//import app.aaps.utils.BatteryOptimizationUtil
     
     companion object {
         private const val REQUEST_CODE_BATTERY_OPTIMIZATION = 1001 // 必须与工具类中的请求码一致
@@ -144,7 +145,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         }
     }
 ////////////////////////////////////////////
-*/    
+    
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -163,7 +164,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
 
 // ================================================
         // 极简白名单调用 - 只需这一行代码！        
-        //BatteryWhitelistEnforcer.forceWhitelisting(this);        
+        // BatteryWhitelistEnforcer.forceWhitelisting(this);        
         // 或者使用更简单的版本（一行代码）：
         // BatteryWhitelistEnforcer.simpleForce(this);
 
@@ -175,13 +176,14 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         // 或者方法2：检查并通知（如果需要）
         // BatteryWhitelistEnforcer.checkAndNotify(this)
         
-// ================================================
-// 初始化鸿蒙后台保活
-//        HarmonyBackgroundManager.initHarmonyBackground(this)
+        // ================================================
+        // 初始化鸿蒙后台保活
+        HarmonyBackgroundManager.initHarmonyBackground(this)
 // ================================================
 
-/*
+
 ////////////////////////////////////////////
+//import app.aaps.utils.BatteryOptimizationUtil
 
         Handler(Looper.getMainLooper()).postDelayed({
             // 传递字符串，而非资源ID，彻底避免R引用问题
@@ -195,7 +197,7 @@ class MainActivity : DaggerAppCompatActivityWithResult() {
         }, 1500)
 
 ////////////////////////////////////////////
-*/
+
         
         // initialize screen wake lock
         processPreferenceChange(EventPreferenceChange(BooleanKey.OverviewKeepScreenOn.key))
