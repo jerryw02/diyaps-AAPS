@@ -418,8 +418,8 @@ class XDripPlugin @Inject constructor(
 private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
     // 1. 验证时间有效性（防止未来或过旧数据）
     val now = System.currentTimeMillis()
-    if (bgData.timestamp > now || bgData.timestamp < now - 60 * 60 * 1000) {
-        aapsLogger.warn(LTag.BGSOURCE, "[ $ {TEST_TAG}] Ignored invalid timestamp:  $ {bgData.timestamp}")
+    if (bgData.timestamp > now || bgData.timestamp < now - 24 * 60 * 60 * 1000L) {
+        aapsLogger.warn(LTag.BGSOURCE, "[ ${TEST_TAG}] Ignored invalid timestamp:  ${bgData.timestamp}")
         return
     }
 
