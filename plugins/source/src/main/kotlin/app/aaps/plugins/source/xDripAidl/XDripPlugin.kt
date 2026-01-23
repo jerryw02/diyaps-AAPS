@@ -1,6 +1,15 @@
 //增加电池优化白名单
-
 package app.aaps.plugins.source.xDripAidl
+
+// ========== 新增导入：RxBus 相关 ==========
+import app.aaps.core.interfaces.rx.events.EventNewBG
+import app.aaps.core.interfaces.rx.bus.RxBus
+//import info.android15.nucleus.data.BgReading
+import app.aaps.core.data.model.GV
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.schedulers.Schedulers
+// ========================================
 
 import com.eveningoutpost.dexdrip.IBgDataCallback
 import com.eveningoutpost.dexdrip.IBgDataService
@@ -306,16 +315,21 @@ class XDripPlugin @Inject constructor(
      */
     private fun forwardToAapsSystem(bgData: com.eveningoutpost.dexdrip.BgData) {
         val ctx = context ?: return
-        
+
         try {
-            // 发送与现有 xDrip 插件兼容的广播
+            // ========== 方案 1：直接发送到 RxBus（主路径） ==========
+            sendToRxBus(bgData)
+            aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}_FORWARD] Data sent directly to RxBus")
+
+            // ========== 方案 2：广播通道（备用，已注释） ==========
+            /*
+            // 保留此段用于双通道测试或回退
             sendXdripCompatibleBroadcast(bgData)
-            
-            aapsLogger.debug(LTag.BGSOURCE,
-                "[${TEST_TAG}_FORWARD] Data forwarded via broadcast")
-                
+            aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}_FORWARD] Data also forwarded via broadcast (backup)")
+            */
+        
         } catch (e: Exception) {
-            aapsLogger.error(LTag.BGSOURCE, "[${TEST_TAG}_FORWARD_ERROR] Failed to forward data", e)
+            aapsLogger.error(LTag.BGSOURCE, "[ $ {TEST_TAG}_FORWARD_ERROR] Failed to forward data to RxBus", e)
         }
     }
 
@@ -382,6 +396,74 @@ class XDripPlugin @Inject constructor(
         }
     }
 
+////////////////////////////////////////
+// ========== 新增方法：将 AIDL 数据直接发送到 AAPS 的 RxBus ==========
+/**
+ * 将 xDrip AIDL 数据转换为 AAPS 内部 BgReading 并发布到 RxBus
+ * 优势：绕过广播机制，避免鸿蒙系统对广播的延迟/限制
+ */
+private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
+    // 1. 构造 BgReading 对象（AAPS 标准血糖数据结构）
+    val bgReading = BgReading().apply {
+        value = bgData.glucose.toInt() // AAPS 内部用 Int 存储 mg/dL
+        date = bgData.timestamp // 必须是毫秒时间戳
+        rawData = bgData.glucose.toDouble()
+        filtered_data = if (bgData.filtered > 0) bgData.filtered.toDouble() else rawData
+        unfiltered_data = if (bgData.unfiltered > 0) bgData.unfiltered.toDouble() else rawData
+
+        // 设置来源标识（便于调试和区分数据源）
+        sourceSensor = "xDrip_AIDL"
+
+        // 方向（趋势）
+        direction = when (bgData.direction?.lowercase()) {
+            "doubleup" -> BgReading.DIRECTION_DOUBLE_UP
+            "singleup" -> BgReading.DIRECTION_SINGLE_UP
+            "fortyfiveup" -> BgReading.DIRECTION_FORTY_FIVE_UP
+            "flat" -> BgReading.DIRECTION_FLAT
+            "fortyfivedown" -> BgReading.DIRECTION_FORTY_FIVE_DOWN
+            "singledown" -> BgReading.DIRECTION_SINGLE_DOWN
+            "doubledown" -> BgReading.DIRECTION_DOUBLE_DOWN
+            else -> BgReading.DIRECTION_NOT_COMPUTED
+        }
+
+        // 噪声级别（可选映射）
+        noise = when {
+            bgData.noise.isNullOrBlank() -> 0
+            bgData.noise.contains("Clean", ignoreCase = true) -> 0
+            bgData.noise.contains("Light", ignoreCase = true) -> 1
+            bgData.noise.contains("Medium", ignoreCase = true) -> 2
+            bgData.noise.contains("Heavy", ignoreCase = true) -> 3
+            bgData.noise.contains("Loss", ignoreCase = true) -> 4
+            else -> 0
+        }
+
+        // 电池电量
+        if (bgData.sensorBatteryLevel >= 0) {
+            sensorBattery = bgData.sensorBatteryLevel.toByte()
+        }
+
+        // 其他字段可按需扩展
+    }
+
+    // 2. 发送到 RxBus（必须在主线程或适当调度器）
+    // 使用 RxJava 切换线程，确保线程安全
+    Observable.just(bgReading)
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe(
+            { reading ->
+                RxBus.INSTANCE.send(EventNewBG(reading))
+                aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}_RxBUS] Sent EventNewBG:  $ {reading.value} mg/dL at  $ {formatTime(reading.date)}")
+            },
+            { error ->
+                aapsLogger.error(LTag.BGSOURCE, "[ $ {TEST_TAG}_RxBUS_ERROR] Failed to send to RxBus", error)
+            }
+        )
+}
+// ==============================================================
+////////////////////////////////////////
+    
+    
     // ========== 原有方法保持不变，但添加心跳检查 ==========
     private fun validateBgData(data: com.eveningoutpost.dexdrip.BgData): Boolean {
         // 检查数据有效性
