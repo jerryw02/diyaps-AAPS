@@ -444,7 +444,7 @@ val gv = GV(
 CoroutineScope(Dispatchers.IO).launch {
     try {
         persistenceLayer.insertCgmSourceData(
-            Sources.NSClient,   // ✅ 使用 Sources.NSClient 确保类型匹配
+            Sources.Xdrip,   // ✅ 使用 Sources.NSClient 确保类型匹配
             listOf(gv),
             emptyList(),
             null
