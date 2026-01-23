@@ -424,35 +424,39 @@ private fun sendToRxBus(bgData: com.eveningoutpost.dexdrip.BgData) {
     }
 
     // 2. 构造 GV（Glucose Value）
-    val gv = GV(
-        timestamp = bgData.timestamp,
-        value = bgData.glucose,
-        raw = if (bgData.rawData != 0.0) bgData.rawData else null,
-        trendArrow = TrendArrow.fromString(bgData.direction ?: "NOT_COMPUTABLE"),
-        noise = mapNoiseToDouble(bgData.noise), // ← 关键：转为 Double?
-        sourceSensor = SourceSensor.UNKNOWN     // 安全默认值
-        // 其他字段（id, version 等）由数据库自动生成，无需设置
-    )
-
-    // 3. 异步写入数据库（必须在后台线程）
-    CoroutineScope(Dispatchers.IO).launch {
-        try {
-            // 注意：按顺序传参！caller 是第一个参数（String）
-            persistenceLayer.insertCgmSourceData(
-                "xDrip",       // caller: String
-                listOf(gv),         // glucoseValues: List<GV>
-                emptyList(),        // calibrations: List<Calibration>
-                null                // sensorInsertionTime: Long?
-            ).blockingGet() // 等待完成
-
-            // 4. 发送通知事件（触发 UI 刷新）
-            rxBus.send(EventNewBG(bgData.timestamp))
-
-            aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}] Inserted GV:  $ {gv.value} at  $ {formatTime(gv.timestamp)}")
-        } catch (e: Exception) {
-            aapsLogger.error(LTag.BGSOURCE, "[ $ {TEST_TAG}] Failed to insert GV", e)
+val gv = GV(
+    timestamp = bgData.timestamp,
+    value = bgData.glucose,
+    raw = run {
+        val rawStr = bgData.rawData // String!
+        if (rawStr.isBlank() || rawStr == "0.0" || rawStr == "0") {
+            null
+        } else {
+            try { rawStr.toDouble() } catch (e: NumberFormatException) { null }
         }
+    },
+    trendArrow = TrendArrow.fromString(bgData.direction ?: "NOT_COMPUTABLE"),
+    noise = mapNoiseToDouble(bgData.noise),
+    sourceSensor = SourceSensor.UNKNOWN
+)
+
+// 3. 异步写入数据库（必须在后台线程）
+CoroutineScope(Dispatchers.IO).launch {
+    try {
+        persistenceLayer.insertCgmSourceData(
+            Sources.NSClient,   // ✅ 使用 Sources.NSClient 确保类型匹配
+            listOf(gv),
+            emptyList(),
+            null
+        ).blockingGet()
+
+        rxBus.send(EventNewBG(bgData.timestamp))
+        aapsLogger.debug(LTag.BGSOURCE, "[ $ {TEST_TAG}] Inserted BG:  $ {bgData.glucose}")
+    } catch (e: Exception) {
+        aapsLogger.error(LTag.BGSOURCE, "[ $ {TEST_TAG}] Insert failed", e)
     }
+}
+                
 }
 // ==============================================================
 
