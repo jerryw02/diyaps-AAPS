@@ -2,8 +2,6 @@
 
 package app.aaps.plugins.source.xDripAidl
 
-//import app.aaps.utils.HarmonyBackgroundManager
-
 import com.eveningoutpost.dexdrip.IBgDataCallback
 import com.eveningoutpost.dexdrip.IBgDataService
 import com.eveningoutpost.dexdrip.BgData  // 这个类必须存在（Parcelable）
@@ -109,11 +107,6 @@ class XDripPlugin @Inject constructor(
         } else {
             aapsLogger.debug(LTag.BGSOURCE, "[${TEST_TAG}_START] Plugin not fully enabled, skipping initialization")
         }
-
-        // =====================================
-        // 启动鸿蒙后台保活
-        //HarmonyBackgroundManager.initHarmonyBackground(context ?: return)
-        // =====================================
     }
 
     override fun onStop() {
