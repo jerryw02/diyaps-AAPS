@@ -1,17 +1,16 @@
-package app.aaps.services
+package app.aaps.utils
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
-import android.content.Context
-import android.content.Intent
-import android.os.Build
-import android.os.IBinder
-import androidx.core.app.NotificationCompat
 import app.aaps.MainActivity
 import app.aaps.R
+
+import android.app.*
+import android.content.*
+import android.net.Uri
+import android.os.*
+import android.provider.Settings
+import android.util.Log
+import androidx.appcompat.app.AlertDialog
+import androidx.core.app.NotificationCompat
 
 class KeepAliveService : Service() {
 
