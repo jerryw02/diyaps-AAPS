@@ -3,6 +3,7 @@ package app.aaps
 import app.aaps.utils.BatteryOptimizationUtil
 import app.aaps.utils.BatteryWhitelistEnforcer
 import app.aaps.utils.HarmonyBackgroundManager
+import app.aaps.utils.KeepAliveService
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
