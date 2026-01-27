@@ -32,6 +32,7 @@
 
     <!-- Android 6.0+ 权限 -->
     <uses-permission-sdk-23 android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- ========== 接收数据权限 ========== -->
     <!-- To receive data from xdrip. -->
@@ -79,6 +80,13 @@
             android:name=".utils.HarmonyHeartbeatService"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- 前台服务声明 -->
+        <service
+            android:name=".services.KeepAliveService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="health" />
         
         <meta-data
             android:name="com.google.android.gms.version"
