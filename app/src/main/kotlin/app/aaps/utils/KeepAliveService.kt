@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.NotificationCompat
+import android.app.PendingIntent
 
 class KeepAliveService : Service() {
 
@@ -55,7 +56,7 @@ class KeepAliveService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AndroidAPS 正在运行")
             .setContentText("实时监控血糖，勿清除通知")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)        //(R.drawable.ic_launcherr)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
