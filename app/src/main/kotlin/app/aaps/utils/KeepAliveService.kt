@@ -55,7 +55,7 @@ class KeepAliveService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AndroidAPS 正在运行")
             .setContentText("实时监控血糖，勿清除通知")
-            .setSmallIcon(R.drawable.ic_stat_icon) // 若无此图标，替换为 R.mipmap.ic_launcher
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
