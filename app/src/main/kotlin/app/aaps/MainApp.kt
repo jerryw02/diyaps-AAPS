@@ -143,10 +143,24 @@ class MainApp : DaggerApplication() {
         
         // ================================================
         // 初始化鸿蒙后台保活
-        HarmonyBackgroundManager.initHarmonyBackground(this)
+        // HarmonyBackgroundManager.initHarmonyBackground(this)
         
 // ================================================
+
+        // 启动前台服务（保活核心）
+        val serviceIntent = Intent(this, KeepAliveService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+
+        // 注意：BatteryOptimizationUtil 需要 Activity 上下文，
+        // 所以授权弹窗仍需在 MainActivity 中触发
+
 /////////////////
+
+
         
         // Do necessary migrations
         doMigrations()
