@@ -1,7 +1,7 @@
 package app.aaps.utils
 
 import app.aaps.MainActivity
-import app.aaps.R
+import android.R
 
 import android.app.*
 import android.content.*
@@ -47,19 +47,21 @@ class KeepAliveService : Service() {
     }
 
     private fun createNotification(): Notification {
-        val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, notificationIntent,
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("AndroidAPS 正在运行")
-            .setContentText("实时监控血糖，勿清除通知")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)        //(R.drawable.ic_launcherr)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        builder.setContentTitle("AndroidAPS 正在运行")
+        builder.setContentText("实时监控血糖，勿清除通知")
+        builder.setSmallIcon(AndroidR.drawable.ic_dialog_info) // ✅ 系统图标
+        builder.setContentIntent(pendingIntent)
+        builder.setOngoing(true)
+        builder.priority = NotificationCompat.PRIORITY_LOW
+
+        return builder.build()
     }
 }
