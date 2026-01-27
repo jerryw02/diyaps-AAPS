@@ -73,7 +73,7 @@ class XDripPlugin @Inject constructor(
         .description(R.string.xdrip_aidl_description) 
         // 确保这里指定了配置文件，否则设置里的开关不会自动关联
         .preferencesId(R.xml.pref_xdrip_aidl) // 关键点：指向你的 XML 配置文件
-        .alwaysEnabled(false), // 必须为 false，才能响应设置里的开关 //故意设置为true，使用xDripSourcePlugin 和XDripAidlPlugin 双重数据源，互为备份
+        .alwaysEnabled(true), // 必须为 false，才能响应设置里的开关 //故意设置为true，使用xDripSourcePlugin 和XDripAidlPlugin 双重数据源，互为备份
     
     aapsLogger, rh
 ), BgSource {
